@@ -9,6 +9,7 @@ scalaJSUseRhino in Global := false
 libraryDependencies ++= (
   "org.scala-js" %%% "scalajs-dom" % "0.9.0" ::
   "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
+  "me.chrons" %%% "diode-react" % "0.5.2" ::
   Nil
 )
 
