@@ -1,14 +1,17 @@
+import com.lihaoyi.workbench.Plugin._
+
 enablePlugins(ScalaJSPlugin)
 
 name := "tigrs"
 
 scalaVersion := "2.11.8"
 
-scalaJSUseRhino in Global := false
+scalaJSUseRhino in Global := false // execute js with node
 
 libraryDependencies ++= (
   "org.scala-js" %%% "scalajs-dom" % "0.9.0" ::
   "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
+  "com.github.japgolly.scalacss" %%% "ext-react" % "0.4.1" ::
   "me.chrons" %%% "diode-react" % "0.5.2" ::
   Nil
 )
@@ -33,3 +36,10 @@ jsDependencies ++= Seq(
     dependsOn "react-dom.js"
     commonJSName "ReactDOMServer"
 )
+
+// workbench
+workbenchSettings
+
+bootSnippet := "tigrs.Main().main();"
+
+updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
