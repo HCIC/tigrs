@@ -43,10 +43,14 @@ case class ForceSimulation(graph: Graph, running: Boolean = false, now: Double =
   def updated(newNow: Double): ForceSimulation = {
     val delta = newNow - now
     val newVertices = graph.vertices.map { vertex =>
-      val wantedDist = 100
+      val wantedDist = 200
       val currentVecs = (graph.vertices - vertex).map(_.pos - vertex.pos)
       val forces = currentVecs.map(v => v.normalized * (v.length - wantedDist) * 0.01)
-      vertex.copy(pos = vertex.pos + forces.reduce(_ + _))
+      val otherVertexForces = forces.reduce(_ + _)
+
+      val gravityForce = -(vertex.pos / Math.pow((vertex.pos.length + 1), 0.5))
+
+      vertex.copy(pos = vertex.pos + otherVertexForces + gravityForce)
       // vertex.copy(pos = vertex.pos + 1)
     }
     copy(graph = graph.copy(vertices = newVertices), now = newNow)
@@ -59,11 +63,7 @@ case object ToggleRunning extends RAFAction
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = RootModel(ForceSimulation(Graph(
-    Set(
-      Vertex(0, Vec2(0, 0)),
-      Vertex(1, Vec2(1, 1)),
-      Vertex(2, Vec2(2, 3))
-    )
+    List.tabulate(100)(i => Vertex(i, Vec2(i * 2, i * i * 0.02))).toSet
   )))
   // zoom into the model, providing access only to the animations
   val animationHandler = new AnimationHandler(zoomRW(_.simulation)((m, v) => m.copy(simulation = v)))
@@ -95,12 +95,15 @@ class AnimationHandler[M](modelRW: ModelRW[M, ForceSimulation]) extends ActionHa
 object MyStyles extends StyleSheet.Inline {
   import dsl._
 
-  def vertex(x: Double, y: Double) = style(
-    position.absolute,
-    left(x px),
-    top(y px)
-  )
+  // val vStyle = styleF(Domain.ofRange(0 to 200)) {
+  //   case (x) => styleS(
+  //     position.absolute,
+  //     left(15 px)
+  //   // top(y px)
+  //   )
+  // }
 }
+
 object SimulationView {
   case class Props(proxy: ModelProxy[ForceSimulation])
   case class State()
@@ -110,9 +113,17 @@ object SimulationView {
       <.div(
         <.button(^.onClick --> p.proxy.dispatch(ToggleRunning), "start"),
         <.div(
-          p.proxy.value.graph.vertices.toSeq.map { v =>
-            <.div(vertex(v.pos.x, v.pos.y), v.toString)
-          }
+          ^.width := "500px",
+          ^.height := "500px",
+          ^.position := "relative",
+          ^.background := "#EFEFEF",
+          <.div(
+            ^.transform := "translate(50%, 50%)", ^.width := "100%", ^.height := "100%",
+            ^.background := "#EEEEEE",
+            p.proxy.value.graph.vertices.toSeq.map { v =>
+              <.div(^.position := "absolute", ^.left := s"${v.pos.x}px", ^.top := s"${v.pos.y}px", ^.border := "5px solid brown", ^.borderRadius := "50%")
+            }
+          )
         )
       )
     }
