@@ -65,11 +65,17 @@ case object ToggleRunning extends RAFAction
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = {
-    val vertexCount = 10
-    val edgeCount = 20
-    RootModel(Graph(
-      Array.tabulate(vertexCount)(i => i), Array.tabulate(edgeCount)(i => Edge((i * 229384) % vertexCount, (i * 320391) % vertexCount))
+    val vertexCount = 30
+    val edgeCount = 30
+    def ri(x: Int) = scala.util.Random.nextInt(x)
+    val m = RootModel(Graph(
+      Array.tabulate(vertexCount)(i => i), Array.tabulate(edgeCount)(i => Edge(ri(vertexCount), ri(vertexCount)))
     ))
+    // println(m.graph.edges.mkString("\n"))
+    m
+
+    // RootModel(Graph(Array(0, 1, 2), Array(Edge(0, 1), Edge(0, 2), Edge(1, 2))))
+    // RootModel(Graph(Array(0, 1), Array(Edge(0, 1))))
   }
   // zoom into the model, providing access only to the animations
   // val animationHandler = new AnimationHandler(zoomRW(_.simulation)((m, v) => m.copy(simulation = v)))
@@ -116,35 +122,58 @@ object SimulationView {
   class Backend($: BackendScope[Props, State]) {
     import MyStyles._
 
-    val wantedDist = 1000
-    val wantedEdgeDist = 200
-    val gravityCenter = Vec2(200, 200)
+    val linkStrength = 5.0
+    val linkDistance = 30.0
+    val charge = -3000
+    val alpha = 0.01
+    val centerPos = Vec2(300, 300)
+
+    def gravitation(a: Vec2, other: Vec2) = {
+      // https://en.wikipedia.org/wiki/Newton%27s_law_of_universal_gravitation#Vector_form
+      val g = 0.5
+      val m_a = 1.0
+      val m_other = 1.0
+      val r = a - other
+      // r.normalized * (-g) * (m_a * m_other) / r.lengthSq
+      r.normalized / -r.lengthSq
+    }
 
     def simulationStep(old: State, g: Graph): State = {
       var newPositions = old.vertexPositions
-      newPositions = old.vertexPositions.map {
-        case (v, pos) =>
-          var newPos = pos
-          for (other <- g.vertices if other != v) {
-            val vec = old.vertexPositions(other) - pos
-            val force = vec.normalized * (vec.length - wantedDist) * 0.001
-            newPos += force
-          }
-          val gravityVec = pos - gravityCenter
-          val gravityForce = -(gravityVec / Math.pow((gravityVec.length + 1), 0.5))
-          newPos += gravityForce
 
-          (v -> newPos)
+      // charge
+      g.vertices.foreach { v =>
+        val oldPos = old.vertexPositions(v)
+        var accForce = Vec2(0, 0)
+        for (other <- g.vertices if other != v) {
+          accForce += gravitation(oldPos, old.vertexPositions(other)) * charge
+        }
+        newPositions = newPositions.updated(v, newPositions(v) + accForce)
       }
+
+      // center
+      g.vertices.foreach { v =>
+        val centerVec = old.vertexPositions(v) - centerPos
+        val centerForce = centerVec / g.vertices.size - centerVec
+        newPositions = newPositions.updated(v, newPositions(v) + centerForce * alpha)
+      }
+
+      // gauss-seidel relaxation for links
+      //                 // https://github.com/mbostock/d3/blob/78e0a4bb81a6565bf61e3ef1b898ef8377478766/src/layout/force.js#L77
       g.edges.foreach {
         case Edge(in, out) =>
           val inPos = old.vertexPositions(in)
           val outPos = old.vertexPositions(out)
-          val vec = inPos - outPos
+          var vec = outPos - inPos
+          // println(s"$in($inPos) -> $out($outPos): ${vec.length}")
           if (vec.length > 0) {
-            val force = vec.normalized * (vec.length - wantedEdgeDist) * 0.1
-            newPositions = newPositions.updated(in, newPositions(in) - force)
-            newPositions = newPositions.updated(out, newPositions(out) + force)
+            val currentForce = linkStrength * (vec.length - linkDistance) / vec.length
+            vec *= currentForce
+            // val forceWeight = source.weight / (target.weight + source.weight);
+            val forceWeight = 0.5
+
+            newPositions = newPositions.updated(in, newPositions(in) + vec * (1 - forceWeight) * alpha)
+            newPositions = newPositions.updated(out, newPositions(out) - vec * forceWeight * alpha)
           }
       }
       old.copy(vertexPositions = newPositions)
