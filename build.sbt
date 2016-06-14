@@ -13,6 +13,7 @@ libraryDependencies ++= (
   "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
   "com.github.japgolly.scalacss" %%% "ext-react" % "0.4.1" ::
   "me.chrons" %%% "diode-react" % "0.5.2" ::
+  "org.singlespaced" %%% "scalajs-d3" % "0.3.3" ::
   Nil
 )
 

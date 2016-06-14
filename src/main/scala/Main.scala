@@ -2,11 +2,13 @@ package tigrs
 
 import collection.mutable
 
+import scala.scalajs.js
 import scala.scalajs.js.JSApp
 import org.scalajs.dom._
 import scala.scalajs.js.annotation.JSExport
 import org.scalajs.dom.ext.KeyCode
 import scala.scalajs.js.Dynamic.global
+import scala.annotation.meta.field
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -17,6 +19,9 @@ import scalacss.ScalaCssReact._
 import diode._
 import diode.ActionResult.ModelUpdate
 import diode.react._
+
+import org.singlespaced.d3js.d3
+import org.singlespaced.d3js.Ops._
 
 case class Vec2(x: Double, y: Double) {
   def +(that: Vec2) = Vec2(x + that.x, y + that.y)
@@ -169,7 +174,7 @@ object SimulationView {
           if (vec.length > 0) {
             val currentForce = linkStrength * (vec.length - linkDistance) / vec.length
             vec *= currentForce
-            // val forceWeight = source.weight / (target.weight + source.weight);
+            // val forceWeight = source.weight / (target.weight + source.weight)
             val forceWeight = 0.5
 
             newPositions = newPositions.updated(in, newPositions(in) + vec * (1 - forceWeight) * alpha)
@@ -250,12 +255,71 @@ object SimulationView {
   def apply(proxy: ModelProxy[Graph]) = smartComponent(Props(proxy))
 }
 
+@JSExport
+class D(
+  val r: Double,
+  @(JSExport @field) var x: js.UndefOr[Double] = js.undefined,
+  @(JSExport @field) var y: js.UndefOr[Double] = js.undefined
+)
 object Main extends JSApp {
   def main() {
-    MyStyles.addToDocument()
-    val sc = AppCircuit.connect(_.graph)(SimulationView(_))
+    // MyStyles.addToDocument()
+    // val sc = AppCircuit.connect(_.graph)(SimulationView(_))
     // AppCircuit.addProcessor(new RAFBatcher)
     // AppCircuit.dispatch(Update)
-    ReactDOM.render(sc, document.getElementById("container"))
+    // ReactDOM.render(sc, document.getElementById("container"))
+    // val sel=d3.select().selectAll("div").data(js.Array(5,2,4,6))
+    // sel.style("width", (d:Int) => d*2 )
+    //
+    // ported from: http://bl.ocks.org/JMStewart/c5e7eafa751c24d75f0e
+    val size = 1000
+    val height = 500.0
+    val width = 960.0
+    val charge = -0.3
+
+    val data = d3.range(size).map(d => new D(Math.floor(scala.util.Random.nextDouble * 8 + 2)))
+    val start = System.currentTimeMillis
+    var time = 0L
+    var ticks = 0L
+    val force = d3.layout.force()
+      .size((width, height))
+      .nodes(data)
+      .charge((d: D, _: Double) => d.r * d.r * charge)
+      .start()
+
+    val nodes = force.nodes()
+
+    val svg = d3.select(document.getElementById("container"))
+      .append("svg")
+      .attr("height", height)
+      .attr("width", width)
+
+    val circles = svg.selectAll("circle")
+      .data[D](nodes)
+      .enter()
+      .append("circle")
+      .attr("r", (d: D) => d.r)
+      .style(
+        "fill", "steelblue"
+      )
+
+    force.on("tick", (e: Event) => {
+      val renderStart = System.currentTimeMillis
+      circles
+        .attr("cx", (d: D) => d.x)
+        .attr("cy", (d: D) => d.y)
+
+      time += (System.currentTimeMillis - renderStart)
+      ticks += 1
+    })
+
+    force.on("end", (e: Event) => {
+      val totalTime = System.currentTimeMillis - start
+      console.log("Total Time:", totalTime)
+      console.log("Render Time:", time)
+      console.log("Ticks:", ticks)
+      console.log("Average Time:", totalTime / ticks)
+    })
+
   }
 }
