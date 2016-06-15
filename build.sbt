@@ -23,7 +23,7 @@ jsDependencies ++= Seq(
   "org.webjars.bower" % "react" % "15.0.2"
     / "react-with-addons.js"
     minified "react-with-addons.min.js"
-    commonJSName "React",
+    commonJSName "react",
 
   "org.webjars.bower" % "react" % "15.0.2"
     / "react-dom.js"
@@ -46,12 +46,12 @@ bootSnippet := "tigrs.Main().main();"
 updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
 
 // scalaxy (faster collection operations)
-scalacOptions += "-Xplugin-require:scalaxy-streams"
+// scalacOptions += "-Xplugin-require:scalaxy-streams"
 
-scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams"))
+// scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams"))
 
-scalacOptions in Test += "-Xplugin-disable:scalaxy-streams"
+// scalacOptions in Test += "-Xplugin-disable:scalaxy-streams"
 
-autoCompilerPlugins := true
+// autoCompilerPlugins := true
 
-addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4")
+// addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4")
