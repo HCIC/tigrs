@@ -106,40 +106,47 @@ object GraphView {
     val start = System.currentTimeMillis
     var time = 0L
     var ticks = 0L
+    var vertices: js.Array[D3Vertex] = js.Array()
 
     val force = d3.layout.force()
       .charge((d: D3Vertex, _: Double) => d.v.r * d.v.r * charge)
       .size((width, height))
 
-    // val updateGraph = (selection: org.singlespaced.d3js.Selection[org.scalajs.dom.EventTarget]) => {
-    //   selection.selectAll(".node")
-    //     .call(updateNode)
-    //   selection.selectAll(".link")
-    //     .call(updateLink)
-    // }
+    def updateGraph(nextProps: Props) {
+      val oldVertices = vertices.map(_.v)
+      val newVertices = nextProps.graph.vertices
 
-    // var updateNode = (selection: org.singlespaced.d3js.Selection[org.scalajs.dom.EventTarget]) => {
-    //   selection.attr("transform", (d: D) => "translate(" + d.x + "," + d.y + ")")
-    // }
+      val addedVertices = newVertices diff oldVertices
+      val updatedVertices = (newVertices intersect oldVertices).toSet
 
-    // var updateLink = (selection: org.singlespaced.d3js.Selection[org.scalajs.dom.EventTarget]) => {
-    //   selection.attr("x1", (d: D) => d.source.x)
-    //     .attr("y1", (d: D) => d.source.y)
-    //     .attr("x2", (d: D) => d.target.x)
-    //     .attr("y2", (d: D) => d.target.y)
-    // }
+      vertices = vertices.filter(d3v => updatedVertices(d3v.v)) ++ addedVertices.map(new D3Vertex(_))
 
-    def registerTick(undefOrnodeSelection: js.UndefOr[org.singlespaced.d3js.Selection[D3Vertex]]): Callback = {
+      nodeGroupRef($).map { vertexGroup =>
+        val domVertices = d3.select(vertexGroup).selectAll("circle")
+          .data(vertices)
+
+        domVertices.enter().append("circle")
+          .attr("r", (d: D3Vertex) => d.v.r)
+          .style("fill", "steelblue")
+
+        domVertices
+          .attr("cx", (d: D3Vertex) => d.x).attr("cy", (d: D3Vertex) => d.y)
+
+        domVertices.exit().remove()
+
+        force.nodes(vertices) //.links(nextProps.links)
+        force.start()
+      }
+    }
+
+    def registerTick: Callback = {
       $.state.map { state =>
-        println(s"  state: ${state}")
-
-        for (vertexGroup <- nodeGroupRef($); nodeSelection <- undefOrnodeSelection) {
-          println(s"  ref: ${vertexGroup}")
-          println(s"registerTick")
+        for (vertexGroup <- nodeGroupRef($)) {
           force.on("tick", (e: Event) => {
+            val domVertices = d3.select(vertexGroup).selectAll("circle")
 
             val renderStart = System.currentTimeMillis
-            nodeSelection.attr("cx", (d: D3Vertex) => d.x).attr("cy", (d: D3Vertex) => d.y)
+            domVertices.attr("cx", (d: D3Vertex) => d.x).attr("cy", (d: D3Vertex) => d.y)
 
             time += (System.currentTimeMillis - renderStart)
             ticks += 1
@@ -157,51 +164,13 @@ object GraphView {
     }
 
     def stopForce = Callback {
-      println("force stop")
       force.stop()
-    }
-
-    def updateGraph(nextProps: Props) = CallbackTo[js.UndefOr[org.singlespaced.d3js.Selection[D3Vertex]]] {
-      nodeGroupRef($).map { vertexGroup =>
-        val vertices = nextProps.graph.vertices.map(new D3Vertex(_)).toJSArray
-        println(s"  ref: ${vertexGroup}")
-        println("force start")
-        force.nodes(vertices) //.links(nextProps.links)
-        force.start()
-
-        d3.select(vertexGroup).selectAll("circle")
-          .data(vertices)
-          .enter().append("circle")
-          // .exit().remove()
-          .attr("r", (d: D3Vertex) => d.v.r)
-          .style(
-            "fill", "steelblue"
-          )
-
-        // var d3Nodes = this.d3Graph.selectAll('.node')
-        //   .data(nextProps.nodes, (node) => node.key)
-        // d3Nodes.enter().append('g').call(enterNode)
-        // d3Nodes.exit().remove()
-        // d3Nodes.call(updateNode)
-
-        // var d3Links = this.d3Graph.selectAll('.link')
-        //   .data(nextProps.links, (link) => link.key)
-        // d3Links.enter().insert('line', '.node').call(enterLink)
-        // d3Links.exit().remove()
-        // d3Links.call(updateLink)
-
-        // we should actually clone the nodes and links
-        // since we're not supposed to directly mutate
-        // props passed in from parent, and d3's force function
-        // mutates the nodes and links array directly
-        // we're bypassing that here for sake of brevity in example
-      }
     }
 
     def render(p: Props, s: State) = {
       val ref = "refuditaern".reactAttr
       <.div(
-        <.button(^.onClick --> p.proxy.dispatch(AddVertex(Vertex(r = 30))), "add vertex"),
+        <.button(^.onClick --> p.proxy.dispatch(AddVertex(Vertex(r = scala.util.Random.nextDouble * 30))), "add vertex"),
         <.svg.svg(^.width := "1000px", ^.height := "1000px", <.svg.g(^.ref := "nodes"))
       )
     }
@@ -209,8 +178,8 @@ object GraphView {
   private val component = ReactComponentB[Props]("SmartComponent")
     .initialState(State())
     .renderBackend[Backend]
-    .componentDidMount(c => c.backend.updateGraph(c.props) >>= c.backend.registerTick)
-    .shouldComponentUpdate(c => { c.$.backend.updateGraph(c.currentProps).runNow(); false })
+    .componentDidMount(c => Callback { c.backend.updateGraph(c.props) } >> c.backend.registerTick)
+    .shouldComponentUpdate(c => { c.$.backend.updateGraph(c.currentProps); false })
     .componentWillUnmount(_.backend.stopForce)
     .build
 
