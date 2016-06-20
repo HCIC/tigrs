@@ -23,6 +23,7 @@ import diode.react._
 
 import org.singlespaced.d3js.d3
 import org.singlespaced.d3js.Ops._
+import org.singlespaced.d3js.Link
 
 import js.JSConverters._
 
@@ -46,33 +47,37 @@ case class Vec2(x: Double, y: Double) {
   def normalized = this / length
 }
 
-case class Edge(in: Int, out: Int)
 case class Vertex(r: Double) {
   override def toString = s"V(${r.toInt})"
 }
-case class Graph(vertices: IndexedSeq[Vertex] = IndexedSeq.empty, edges: Seq[Edge] = Seq.empty) {
-  def +(v: Vertex) = copy(vertices = vertices :+ v)
-  def -(v: Vertex) = copy(vertices = vertices diff Seq(v))
+case class Edge(source: Vertex, target: Vertex)
+case class Graph(vertices: Set[Vertex] = Set.empty, edges: Set[Edge] = Set.empty) {
+  def +(v: Vertex) = copy(vertices = vertices + v)
+  def +(e: Edge) = copy(edges = edges + e)
+  def -(v: Vertex) = copy(vertices = vertices - v, edges = edges.filterNot(e => e.source == v || e.target == v))
 }
 
 case class RootModel(graph: Graph)
 case class AddVertex(v: Vertex)
+case class AddEdge(e: Edge)
 case class RemoveVertex(v: Vertex)
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = {
-    val vertexCount = 100
-    val edgeCount = 30
+    val vertexCount = 5
+    val edgeCount = 3
     def ri(x: Int) = scala.util.Random.nextInt(x)
     def rd = scala.util.Random.nextDouble
-    RootModel(Graph(
-      Array.tabulate(vertexCount)(i => Vertex(5 + rd * 10)), Array.tabulate(edgeCount)(i => Edge(ri(vertexCount), ri(vertexCount)))
-    ))
+    val vertices = Array.tabulate(vertexCount)(i => Vertex(5 + rd * 10))
+    def randomVertices(n: Int) = scala.util.Random.shuffle(vertices.toSeq).take(n)
+    val edges = Array.tabulate(edgeCount)(i => { val vs = randomVertices(2); Edge(vs(0), vs(1)) })
+    RootModel(Graph(vertices.toSet, edges.toSet))
   }
 
   val graphHandler = new ActionHandler(zoomRW(_.graph)((m, v) => m.copy(graph = v))) {
     override def handle = {
       case AddVertex(v) => updated(value + v)
+      case AddEdge(e) => updated(value + e)
       case RemoveVertex(v) => updated(value - v)
     }
   }
@@ -98,66 +103,84 @@ object GraphView {
   }
   case class State()
   class Backend($: BackendScope[Props, State]) {
-    val nodeGroupRef = Ref[dom.Element]("nodes")
-
-    val height = 500.0
     val width = 960.0
+    val height = 500.0
     val charge = -0.3
-    val start = System.currentTimeMillis
-    var time = 0L
-    var ticks = 0L
-    var vertices: js.Array[D3Vertex] = js.Array()
 
-    val force = d3.layout.force()
+    val vertexGroupRef = Ref[dom.Element]("vertices")
+    val edgeGroupRef = Ref[dom.Element]("edges")
+
+    var vertices: js.Array[D3Vertex] = js.Array()
+    var edges: js.Array[D3Edge] = js.Array()
+
+    val force = d3.layout.force[D3Vertex, D3Edge]()
       .charge((d: D3Vertex, _: Double) => d.v.r * d.v.r * charge)
+      .linkDistance(100)
       .size((width, height))
 
     def updateGraph(nextProps: Props) {
-      val oldVertices = vertices.map(_.v)
-      val newVertices = nextProps.graph.vertices
+      val oldVertices = vertices.map(d => d.v -> d).toMap
+      vertices = nextProps.graph.vertices.map { v =>
+        oldVertices.get(v) match {
+          case Some(d3v) => d3v
+          case None => new D3Vertex(v)
+        }
+      }.toJSArray
 
-      val addedVertices = newVertices diff oldVertices
-      val updatedVertices = (newVertices intersect oldVertices).toSet
+      val vertexMap = vertices.map(d => d.v -> d).toMap
+      val oldEdges = edges.map(d => (d.e -> d)).toMap
+      edges = nextProps.graph.edges.map { e =>
+        oldEdges.get(e) match {
+          case Some(d3e) => d3e
+          case None => new D3Edge(e, vertexMap(e.source), vertexMap(e.target))
+        }
+      }.toJSArray
 
-      vertices = vertices.filter(d3v => updatedVertices(d3v.v)) ++ addedVertices.map(new D3Vertex(_))
+      for (vertexGroup <- vertexGroupRef($); edgeGroup <- edgeGroupRef($)) {
 
-      nodeGroupRef($).map { vertexGroup =>
         val domVertices = d3.select(vertexGroup).selectAll("circle")
           .data(vertices)
-
         domVertices.exit().remove()
         domVertices.enter().append("circle")
-
         domVertices
-          .attr("cx", (d: D3Vertex) => d.x).attr("cy", (d: D3Vertex) => d.y)
+          .attr("cx", (d: D3Vertex) => d.x)
+          .attr("cy", (d: D3Vertex) => d.y)
           .attr("r", (d: D3Vertex) => d.v.r)
           .style("fill", "steelblue")
           .on("click", (d: D3Vertex) => nextProps.proxy.dispatch(RemoveVertex(d.v)).runNow())
 
-        force.nodes(vertices) //.links(nextProps.links)
+        val domEdges = d3.select(edgeGroup).selectAll("line")
+          .data(edges)
+        domEdges.exit().remove()
+        domEdges.enter().append("line")
+        domEdges
+          .attr("x1", (d: D3Edge) => d.source.x)
+          .attr("y1", (d: D3Edge) => d.source.y)
+          .attr("x2", (d: D3Edge) => d.target.x)
+          .attr("y2", (d: D3Edge) => d.target.y)
+          .style("stroke", "#666")
+          .style("stroke-width", 2)
+
+        force.nodes(vertices).links(edges)
         force.start()
       }
     }
 
     def registerTick: Callback = {
       $.state.map { state =>
-        for (vertexGroup <- nodeGroupRef($)) {
+        for (vertexGroup <- vertexGroupRef($); edgeGroup <- edgeGroupRef($)) {
           force.on("tick", (e: Event) => {
             val domVertices = d3.select(vertexGroup).selectAll("circle")
-
-            val renderStart = System.currentTimeMillis
-            domVertices.attr("cx", (d: D3Vertex) => d.x).attr("cy", (d: D3Vertex) => d.y)
-
-            time += (System.currentTimeMillis - renderStart)
-            ticks += 1
-          })
-
-          force.on("end", (e: Event) => {
-            val totalTime = System.currentTimeMillis - start
-            // console.log("Total Time:", totalTime)
-            // console.log("Render Time:", time)
-            // console.log("Ticks:", ticks)
-            // console.log("Average Time:", totalTime / ticks)
+            val domEdges = d3.select(edgeGroup).selectAll("line")
+            domVertices
+              .attr("cx", (d: D3Vertex) => d.x)
+              .attr("cy", (d: D3Vertex) => d.y)
+            domEdges
+              .attr("x1", (d: D3Edge) => d.source.x)
+              .attr("y1", (d: D3Edge) => d.source.y)
+              .attr("x2", (d: D3Edge) => d.target.x)
+              .attr("y2", (d: D3Edge) => d.target.y)
+            ()
           })
         }
       }.void
@@ -170,6 +193,10 @@ object GraphView {
     def render(p: Props, s: State) = {
       <.div(
         <.button(^.onClick --> p.proxy.dispatch(AddVertex(Vertex(r = scala.util.Random.nextDouble * 20 + 10))), "add vertex"),
+        <.button(^.onClick --> {
+          val vs = scala.util.Random.shuffle(p.graph.vertices.toSeq).take(2)
+          p.proxy.dispatch(AddEdge(Edge(vs(0), vs(1))))
+        }, "add edge"),
         <.div(
           ^.width := "1000px",
           ^.height := "1000px",
@@ -178,14 +205,14 @@ object GraphView {
             ^.width := "1000px",
             ^.height := "1000px",
             ^.position := "absolute",
-            <.svg.g(^.ref := "nodes")
+            ^.ref := "edges"
+          ),
+          <.svg.svg(
+            ^.width := "1000px",
+            ^.height := "1000px",
+            ^.position := "absolute",
+            ^.ref := "vertices"
           )
-        // <.svg.svg(
-        //   ^.width := "1000px",
-        //   ^.height := "1000px",
-        //   ^.position := "absolute",
-        //   <.svg.g(^.ref := "nodes")
-        // )
         )
       )
     }
@@ -207,6 +234,14 @@ class D3Vertex(
   @(JSExport @field) var x: js.UndefOr[Double] = js.undefined,
   @(JSExport @field) var y: js.UndefOr[Double] = js.undefined
 )
+
+@JSExport
+class D3Edge(
+  val e: Edge,
+  @(JSExport @field) var source: D3Vertex,
+  @(JSExport @field) var target: D3Vertex
+) extends Link[D3Vertex]
+
 object Main extends JSApp {
   def main() {
     // MyStyles.addToDocument()
