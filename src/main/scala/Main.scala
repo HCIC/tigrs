@@ -47,33 +47,33 @@ case class Vec2(x: Double, y: Double) {
 }
 
 case class Edge(in: Int, out: Int)
-case class Vertex(r: Double)
+case class Vertex(r: Double) {
+  override def toString = s"V(${r.toInt})"
+}
 case class Graph(vertices: IndexedSeq[Vertex] = IndexedSeq.empty, edges: Seq[Edge] = Seq.empty) {
   def +(v: Vertex) = copy(vertices = vertices :+ v)
+  def -(v: Vertex) = copy(vertices = vertices diff Seq(v))
 }
 
 case class RootModel(graph: Graph)
 case class AddVertex(v: Vertex)
+case class RemoveVertex(v: Vertex)
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = {
-    val vertexCount = 10
+    val vertexCount = 100
     val edgeCount = 30
     def ri(x: Int) = scala.util.Random.nextInt(x)
     def rd = scala.util.Random.nextDouble
-    val m = RootModel(Graph(
-      Array.tabulate(vertexCount)(i => Vertex(rd * 10)), Array.tabulate(edgeCount)(i => Edge(ri(vertexCount), ri(vertexCount)))
+    RootModel(Graph(
+      Array.tabulate(vertexCount)(i => Vertex(5 + rd * 10)), Array.tabulate(edgeCount)(i => Edge(ri(vertexCount), ri(vertexCount)))
     ))
-    // println(m.graph.edges.mkString("\n"))
-    m
-
-    // RootModel(Graph(Array(0, 1, 2), Array(Edge(0, 1), Edge(0, 2), Edge(1, 2))))
-    // RootModel(Graph(Array(0, 1), Array(Edge(0, 1))))
   }
 
   val graphHandler = new ActionHandler(zoomRW(_.graph)((m, v) => m.copy(graph = v))) {
     override def handle = {
       case AddVertex(v) => updated(value + v)
+      case RemoveVertex(v) => updated(value - v)
     }
   }
   val actionHandler = composeHandlers(graphHandler)
@@ -125,14 +125,14 @@ object GraphView {
         val domVertices = d3.select(vertexGroup).selectAll("circle")
           .data(vertices)
 
+        domVertices.exit().remove()
         domVertices.enter().append("circle")
-          .attr("r", (d: D3Vertex) => d.v.r)
-          .style("fill", "steelblue")
 
         domVertices
           .attr("cx", (d: D3Vertex) => d.x).attr("cy", (d: D3Vertex) => d.y)
-
-        domVertices.exit().remove()
+          .attr("r", (d: D3Vertex) => d.v.r)
+          .style("fill", "steelblue")
+          .on("click", (d: D3Vertex) => nextProps.proxy.dispatch(RemoveVertex(d.v)).runNow())
 
         force.nodes(vertices) //.links(nextProps.links)
         force.start()
@@ -154,10 +154,10 @@ object GraphView {
 
           force.on("end", (e: Event) => {
             val totalTime = System.currentTimeMillis - start
-            console.log("Total Time:", totalTime)
-            console.log("Render Time:", time)
-            console.log("Ticks:", ticks)
-            console.log("Average Time:", totalTime / ticks)
+            // console.log("Total Time:", totalTime)
+            // console.log("Render Time:", time)
+            // console.log("Ticks:", ticks)
+            // console.log("Average Time:", totalTime / ticks)
           })
         }
       }.void
@@ -168,10 +168,25 @@ object GraphView {
     }
 
     def render(p: Props, s: State) = {
-      val ref = "refuditaern".reactAttr
       <.div(
-        <.button(^.onClick --> p.proxy.dispatch(AddVertex(Vertex(r = scala.util.Random.nextDouble * 30))), "add vertex"),
-        <.svg.svg(^.width := "1000px", ^.height := "1000px", <.svg.g(^.ref := "nodes"))
+        <.button(^.onClick --> p.proxy.dispatch(AddVertex(Vertex(r = scala.util.Random.nextDouble * 20 + 10))), "add vertex"),
+        <.div(
+          ^.width := "1000px",
+          ^.height := "1000px",
+          ^.position := "relative",
+          <.svg.svg(
+            ^.width := "1000px",
+            ^.height := "1000px",
+            ^.position := "absolute",
+            <.svg.g(^.ref := "nodes")
+          )
+        // <.svg.svg(
+        //   ^.width := "1000px",
+        //   ^.height := "1000px",
+        //   ^.position := "absolute",
+        //   <.svg.g(^.ref := "nodes")
+        // )
+        )
       )
     }
   }
@@ -179,7 +194,7 @@ object GraphView {
     .initialState(State())
     .renderBackend[Backend]
     .componentDidMount(c => Callback { c.backend.updateGraph(c.props) } >> c.backend.registerTick)
-    .shouldComponentUpdate(c => { c.$.backend.updateGraph(c.currentProps); false })
+    .shouldComponentUpdate(c => { c.$.backend.updateGraph(c.currentProps); false }) // let d3 update, instead of react
     .componentWillUnmount(_.backend.stopForce)
     .build
 
