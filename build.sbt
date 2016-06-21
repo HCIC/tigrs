@@ -14,6 +14,7 @@ libraryDependencies ++= (
   "com.github.japgolly.scalacss" %%% "ext-react" % "0.4.1" ::
   "me.chrons" %%% "diode-react" % "0.5.2" ::
   "org.singlespaced" %%% "scalajs-d3" % "0.3.3" ::
+  "com.assembla.scala-incubator" %%% "graph-core" % "1.11.0" ::
   Nil
 )
 

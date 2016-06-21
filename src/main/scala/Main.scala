@@ -21,11 +21,15 @@ import diode._
 import diode.ActionResult.ModelUpdate
 import diode.react._
 
+import org.singlespaced.d3js
 import org.singlespaced.d3js.d3
 import org.singlespaced.d3js.Ops._
 import org.singlespaced.d3js.Link
 
 import js.JSConverters._
+
+import scalax.collection.Graph
+import scalax.collection.GraphPredef._, scalax.collection.GraphEdge._
 
 case class Vec2(x: Double, y: Double) {
   def +(that: Vec2) = Vec2(x + that.x, y + that.y)
@@ -50,16 +54,13 @@ case class Vec2(x: Double, y: Double) {
 case class Vertex(r: Double) {
   override def toString = s"V(${r.toInt})"
 }
-case class Edge(source: Vertex, target: Vertex)
-case class Graph(vertices: Set[Vertex] = Set.empty, edges: Set[Edge] = Set.empty) {
-  def +(v: Vertex) = copy(vertices = vertices + v)
-  def +(e: Edge) = copy(edges = edges + e)
-  def -(v: Vertex) = copy(vertices = vertices - v, edges = edges.filterNot(e => e.source == v || e.target == v))
-}
 
-case class RootModel(graph: Graph)
+case class RootModel(graph: Graph[Vertex, DiEdge])
+
 case class AddVertex(v: Vertex)
-case class AddEdge(e: Edge)
+
+case class AddEdge(e: DiEdge[Vertex])
+
 case class RemoveVertex(v: Vertex)
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
@@ -70,8 +71,11 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
     def rd = scala.util.Random.nextDouble
     val vertices = Array.tabulate(vertexCount)(i => Vertex(5 + rd * 10))
     def randomVertices(n: Int) = scala.util.Random.shuffle(vertices.toSeq).take(n)
-    val edges = Array.tabulate(edgeCount)(i => { val vs = randomVertices(2); Edge(vs(0), vs(1)) })
-    RootModel(Graph(vertices.toSet, edges.toSet))
+    val edges = Array.tabulate(edgeCount)(i => {
+      val vs = randomVertices(2);
+      DiEdge(vs(0), vs(1))
+    })
+    RootModel(Graph.from(vertices, edges))
   }
 
   val graphHandler = new ActionHandler(zoomRW(_.graph)((m, v) => m.copy(graph = v))) {
@@ -84,25 +88,26 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val actionHandler = composeHandlers(graphHandler)
 }
 
-object MyStyles extends StyleSheet.Inline {
-  import dsl._
-
-  // val vStyle = styleF(Domain.ofRange(0 to 200)) {
-  //   case (x) => styleS(
-  //     position.absolute,
-  //     left(15 px)
-  //   // top(y px)
-  //   )
-  // }
-}
-
 object GraphView {
+  class D3Vertex(
+    val v: Vertex
+  ) extends d3js.forceModule.Node
+
+  class D3Edge(
+    val e: DiEdge[Vertex],
+    @(JSExport @field) var source: D3Vertex,
+    @(JSExport @field) var target: D3Vertex
+  ) extends d3js.Link[D3Vertex]
+
   // http://bl.ocks.org/sxywu/fcef0e6dac231ef2e54b
-  case class Props(proxy: ModelProxy[Graph]) {
+  case class Props(proxy: ModelProxy[Graph[Vertex, DiEdge]]) {
     def graph = proxy.value
   }
+
   case class State()
+
   class Backend($: BackendScope[Props, State]) {
+
     val width = 960.0
     val height = 500.0
     val charge = -0.3
@@ -120,7 +125,7 @@ object GraphView {
 
     def updateGraph(nextProps: Props) {
       val oldVertices = vertices.map(d => d.v -> d).toMap
-      vertices = nextProps.graph.vertices.map { v =>
+      vertices = nextProps.graph.nodes.map((v: Graph[Vertex, DiEdge]#NodeT) => v.value).map { v =>
         oldVertices.get(v) match {
           case Some(d3v) => d3v
           case None => new D3Vertex(v)
@@ -129,7 +134,8 @@ object GraphView {
 
       val vertexMap = vertices.map(d => d.v -> d).toMap
       val oldEdges = edges.map(d => (d.e -> d)).toMap
-      edges = nextProps.graph.edges.map { e =>
+      edges = nextProps.graph.edges.map { e_inner: Graph[Vertex, DiEdge]#EdgeT =>
+        val e = e_inner.toOuter
         oldEdges.get(e) match {
           case Some(d3e) => d3e
           case None => new D3Edge(e, vertexMap(e.source), vertexMap(e.target))
@@ -194,8 +200,8 @@ object GraphView {
       <.div(
         <.button(^.onClick --> p.proxy.dispatch(AddVertex(Vertex(r = scala.util.Random.nextDouble * 20 + 10))), "add vertex"),
         <.button(^.onClick --> {
-          val vs = scala.util.Random.shuffle(p.graph.vertices.toSeq).take(2)
-          p.proxy.dispatch(AddEdge(Edge(vs(0), vs(1))))
+          val vs = scala.util.Random.shuffle(p.graph.nodes.toSeq).take(2)
+          p.proxy.dispatch(AddEdge(DiEdge(vs(0).value, vs(1).value)))
         }, "add edge"),
         <.div(
           ^.width := "1000px",
@@ -217,34 +223,29 @@ object GraphView {
       )
     }
   }
+
   private val component = ReactComponentB[Props]("SmartComponent")
     .initialState(State())
     .renderBackend[Backend]
-    .componentDidMount(c => Callback { c.backend.updateGraph(c.props) } >> c.backend.registerTick)
-    .shouldComponentUpdate(c => { c.$.backend.updateGraph(c.currentProps); false }) // let d3 update, instead of react
+    .componentDidMount(c => Callback {
+      c.backend.updateGraph(c.props)
+    } >> c.backend.registerTick)
+    .shouldComponentUpdate(c => {
+      c.$.backend.updateGraph(c.currentProps);
+      false
+    }) // let d3 update, instead of react
     .componentWillUnmount(_.backend.stopForce)
     .build
 
-  def apply(proxy: ModelProxy[Graph]) = component(Props(proxy))
+  def apply(proxy: ModelProxy[Graph[Vertex, DiEdge]]) = component(Props(proxy))
 }
 
-@JSExport
-class D3Vertex(
-  val v: Vertex,
-  @(JSExport @field) var x: js.UndefOr[Double] = js.undefined,
-  @(JSExport @field) var y: js.UndefOr[Double] = js.undefined
-)
-
-@JSExport
-class D3Edge(
-  val e: Edge,
-  @(JSExport @field) var source: D3Vertex,
-  @(JSExport @field) var target: D3Vertex
-) extends Link[D3Vertex]
-
 object Main extends JSApp {
+
   def main() {
-    // MyStyles.addToDocument()
+    val g = Graph(1 ~ 2)
+    println(g)
+
     val sc = AppCircuit.connect(_.graph)(GraphView(_))
     ReactDOM.render(sc, document.getElementById("container"))
   }
