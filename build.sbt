@@ -56,3 +56,18 @@ updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
 // autoCompilerPlugins := true
 
 // addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4")
+
+scalacOptions ++=
+  "-encoding" :: "UTF-8" ::
+  "-unchecked" ::
+  "-deprecation" ::
+  "-explaintypes" ::
+  "-feature" ::
+  "-language:_" ::
+  "-Xlint:_" ::
+  "-Ywarn-unused" ::
+  // "-Xdisable-assertions" ::
+  // "-optimize" ::
+  // "-Yopt:_" :: // enables all 2.12 optimizations
+  // "-Yinline" :: "-Yinline-warnings" ::
+  Nil
