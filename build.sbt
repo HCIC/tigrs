@@ -9,10 +9,10 @@ scalaVersion := "2.11.8"
 scalaJSUseRhino in Global := false // execute js with node
 
 libraryDependencies ++= (
-  "org.scala-js" %%% "scalajs-dom" % "0.9.0" ::
+  "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
   "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
   "com.github.japgolly.scalacss" %%% "ext-react" % "0.4.1" ::
-  "me.chrons" %%% "diode-react" % "0.5.2" ::
+  "me.chrons" %%% "diode-react" % "1.0.0" ::
   "org.singlespaced" %%% "scalajs-d3" % "0.3.3" ::
   "com.assembla.scala-incubator" %%% "graph-core" % "1.11.0" ::
   Nil
@@ -21,18 +21,18 @@ libraryDependencies ++= (
 // React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
 jsDependencies ++= Seq(
 
-  "org.webjars.bower" % "react" % "15.0.2"
+  "org.webjars.bower" % "react" % "15.1.0"
     / "react-with-addons.js"
     minified "react-with-addons.min.js"
     commonJSName "react",
 
-  "org.webjars.bower" % "react" % "15.0.2"
+  "org.webjars.bower" % "react" % "15.1.0"
     / "react-dom.js"
     minified "react-dom.min.js"
     dependsOn "react-with-addons.js"
     commonJSName "ReactDOM",
 
-  "org.webjars.bower" % "react" % "15.0.2"
+  "org.webjars.bower" % "react" % "15.1.0"
     / "react-dom-server.js"
     minified "react-dom-server.min.js"
     dependsOn "react-dom.js"

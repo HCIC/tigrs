@@ -29,16 +29,17 @@ import org.singlespaced.d3js.Link
 import js.JSConverters._
 
 import scalax.collection.Graph
-import scalax.collection.GraphPredef._, scalax.collection.GraphEdge._
+import scalax.collection.GraphPredef._
+import scalax.collection.GraphEdge._
 
 case class Vertex(r: Double) {
   override def toString = s"V(${r.toInt})"
 }
 
 case class RootModel(graph: Graph[Vertex, DiEdge])
-case class AddVertex(v: Vertex)
-case class AddEdge(e: DiEdge[Vertex])
-case class RemoveVertex(v: Vertex)
+case class AddVertex(v: Vertex) extends Action
+case class AddEdge(e: DiEdge[Vertex]) extends Action
+case class RemoveVertex(v: Vertex) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = {
@@ -67,8 +68,8 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
 object Main extends JSApp {
 
   def main() {
-    val sc = AppCircuit.connect(m => m)(mainView(_))
-    ReactDOM.render(sc, document.getElementById("container"))
+    val sc = AppCircuit.connect(m => m)
+    ReactDOM.render(sc(mainView(_)), document.getElementById("container"))
   }
 
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
