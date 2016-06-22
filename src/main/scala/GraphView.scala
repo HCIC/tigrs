@@ -1,4 +1,4 @@
-package tigrs
+package graphView
 
 import collection.mutable
 import scala.scalajs.js
@@ -30,49 +30,111 @@ import scalax.collection.Graph
 import scalax.collection.GraphPredef._
 import scalax.collection.GraphEdge._
 
-object GraphView {
+trait GraphView[V, E[X] <: DiEdgeLikeIn[X]] {
 
   class D3Vertex(
-    val v: Vertex
+    val v: V
   ) extends d3js.forceModule.Node
 
   class D3Edge(
-    val e: DiEdge[Vertex],
+    val e: E[V],
     @(JSExport @field) var source: D3Vertex,
     @(JSExport @field) var target: D3Vertex
   ) extends d3js.Link[D3Vertex]
 
+  type VertexSelection = d3js.selection.Update[D3Vertex]
+  type EdgeSelection = d3js.selection.Update[D3Edge]
+
   case class Props(
-    proxy: ModelProxy[Graph[Vertex, DiEdge]],
-    width: Double = 960,
-    height: Double = 500.0,
-    charge: Double = -0.3
+    proxy: ModelProxy[Graph[V, E]],
+    width: Double,
+    height: Double
   ) {
     def graph = proxy.value
   }
 
   case class State(
     force: Force[D3Vertex, D3Edge],
-    var vertices: js.Array[D3Vertex],
-    var edges: js.Array[D3Edge],
-    var domVertices: js.UndefOr[d3js.selection.Update[tigrs.GraphView.D3Vertex]] = js.undefined,
-    var domEdges: js.UndefOr[d3js.selection.Update[tigrs.GraphView.D3Edge]] = js.undefined
+    var vertexData: js.Array[D3Vertex],
+    var edgeData: js.Array[D3Edge],
+    var vertexSel: js.UndefOr[VertexSelection] = js.undefined,
+    var edgeSel: js.UndefOr[EdgeSelection] = js.undefined
   )
 
-  def initialState(p: Props): State = {
+  def charge(v: V): Double = -30
+  def linkDistance(v: E[V]): Double = 20
+
+  private def initialState(p: Props): State = {
     import p._
     State(
       force = d3.layout.force[D3Vertex, D3Edge]()
-        .charge((d: D3Vertex, _: Double) => d.v.r * d.v.r * charge)
-        .linkDistance(100)
+        .charge((d: D3Vertex, _: Double) => charge(d.v))
+        .linkDistance((d: D3Edge, _: Double) => linkDistance(d.e))
         .size((width, height)),
-      vertices = js.Array(),
-      edges = js.Array()
+      vertexData = js.Array(),
+      edgeData = js.Array()
     )
   }
 
   val vertexGroupRef = Ref[raw.HTMLCanvasElement]("vertices")
   val edgeGroupRef = Ref[raw.HTMLCanvasElement]("edges")
+
+  def renderVertexArea(p: Props, s: State) = {
+    import p._
+    <.svg.svg(
+      ^.width := s"${width}px",
+      ^.height := s"${height}px",
+      ^.position := "absolute",
+      ^.ref := "vertices"
+    )
+  }
+
+  def renderEdgeArea(p: Props, s: State) = {
+    import p._
+    <.svg.svg(
+      ^.width := s"${width}px",
+      ^.height := s"${height}px",
+      ^.position := "absolute",
+      ^.ref := "edges"
+    )
+  }
+
+  def render(p: Props, s: State) = {
+    import p._
+    <.div(
+      <.div(
+        ^.width := s"${width}px",
+        ^.height := s"${height}px",
+        ^.position := "relative",
+        ^.border := "1px solid #DDD",
+        renderEdgeArea(p, s),
+        renderVertexArea(p, s)
+      )
+    )
+  }
+
+  def vertexTag = "circle"
+  def lineTag = "circle"
+
+  def positionVertices(sel: VertexSelection): VertexSelection = {
+    sel
+      .attr("cx", (d: D3Vertex) => d.x)
+      .attr("cy", (d: D3Vertex) => d.y)
+  }
+
+  def positionEdges(sel: EdgeSelection): EdgeSelection = {
+    sel
+      .attr("x1", (d: D3Edge) => d.source.x)
+      .attr("y1", (d: D3Edge) => d.source.y)
+      .attr("x2", (d: D3Edge) => d.target.x)
+      .attr("y2", (d: D3Edge) => d.target.y)
+  }
+
+  def styleVertices(sel: VertexSelection): VertexSelection = {
+    sel
+      .attr("r", (d: D3Vertex) => 5)
+      .style("fill", "steelblue")
+  }
 
   class Backend($: BackendScope[Props, State]) {
 
@@ -80,8 +142,8 @@ object GraphView {
       import p._
       import s._
 
-      val oldVertices = vertices.map(d => d.v -> d).toMap
-      val newVertices = p.graph.nodes.map((v: Graph[Vertex, DiEdge]#NodeT) => v.value).map { v =>
+      val oldVertices = vertexData.map(d => d.v -> d).toMap
+      val newVertices = p.graph.nodes.map((v: Graph[V, E]#NodeT) => v.value).map { v =>
         oldVertices.get(v) match {
           case Some(d3v) => d3v
           case None => new D3Vertex(v)
@@ -89,8 +151,8 @@ object GraphView {
       }.toJSArray
 
       val vertexMap = newVertices.map(d => d.v -> d).toMap
-      val oldEdges = edges.map(d => (d.e -> d)).toMap
-      val newEdges = p.graph.edges.map { e_inner: Graph[Vertex, DiEdge]#EdgeT =>
+      val oldEdges = edgeData.map(d => (d.e -> d)).toMap
+      val newEdges = p.graph.edges.map { e_inner: Graph[V, E]#EdgeT =>
         val e = e_inner.toOuter
         oldEdges.get(e) match {
           case Some(d3e) =>
@@ -100,38 +162,32 @@ object GraphView {
         }
       }.toJSArray
 
-      vertices = newVertices
-      edges = newEdges
+      vertexData = newVertices
+      edgeData = newEdges
     }
 
     def updateVisualization(p: Props, s: State) = Callback {
       import p._
       import s._
-      lazy val domVerticesSel = d3.select(vertexGroupRef($).get).selectAll("circle")
+      lazy val domVerticesSel = d3.select(vertexGroupRef($).get).selectAll(vertexTag)
       lazy val domEdgesSel = d3.select(edgeGroupRef($).get).selectAll("line")
 
-      domVertices = domVertices.getOrElse(domVerticesSel).data(vertices)
-      domVertices.get.exit().remove()
-      domVertices.get.enter().append("circle")
-      domVertices.get
-        .attr("cx", (d: D3Vertex) => d.x)
-        .attr("cy", (d: D3Vertex) => d.y)
-        .attr("r", (d: D3Vertex) => d.v.r)
-        .style("fill", "steelblue")
-        .on("click", (d: D3Vertex) => p.proxy.dispatch(RemoveVertex(d.v)).runNow())
+      vertexSel = vertexSel.getOrElse(domVerticesSel).data(vertexData)
+      for (v <- vertexSel) {
+        v.exit().remove()
+        v.enter().append(vertexTag)
+        styleVertices(v)
+        positionVertices(v)
+      }
 
-      domEdges = domEdges.getOrElse(domEdgesSel).data(edges)
-      domEdges.get.exit().remove()
-      domEdges.get.enter().append("line")
-      domEdges.get
-        .attr("x1", (d: D3Edge) => d.source.x)
-        .attr("y1", (d: D3Edge) => d.source.y)
-        .attr("x2", (d: D3Edge) => d.target.x)
-        .attr("y2", (d: D3Edge) => d.target.y)
+      edgeSel = edgeSel.getOrElse(domEdgesSel).data(edgeData)
+      edgeSel.get.exit().remove()
+      edgeSel.get.enter().append("line")
+      positionEdges(edgeSel.get)
         .style("stroke", "#666")
         .style("stroke-width", 2)
 
-      force.nodes(vertices).links(edges)
+      force.nodes(vertexData).links(edgeData)
       force.start()
     }
 
@@ -141,15 +197,8 @@ object GraphView {
       import s._
 
       force.on("tick", (e: Event) => {
-        domVertices.get
-          .attr("cx", (d: D3Vertex) => d.x)
-          .attr("cy", (d: D3Vertex) => d.y)
-
-        domEdges.get
-          .attr("x1", (d: D3Edge) => d.source.x)
-          .attr("y1", (d: D3Edge) => d.source.y)
-          .attr("x2", (d: D3Edge) => d.target.x)
-          .attr("y2", (d: D3Edge) => d.target.y)
+        positionVertices(vertexSel.get)
+        positionEdges(edgeSel.get)
         ()
       })
     }
@@ -158,41 +207,16 @@ object GraphView {
       s.force.stop()
     }
 
-    def render(p: Props, s: State) = {
-      <.div(
-        <.button(^.onClick --> p.proxy.dispatch(AddVertex(Vertex(r = scala.util.Random.nextDouble * 20 + 10))), "add vertex"),
-        <.button(^.onClick --> {
-          val vs = scala.util.Random.shuffle(p.graph.nodes.toSeq).take(2)
-          p.proxy.dispatch(AddEdge(DiEdge(vs(0).value, vs(1).value)))
-        }, "add edge"),
-        <.div(
-          ^.width := "1000px",
-          ^.height := "1000px",
-          ^.position := "relative",
-          <.svg.svg(
-            ^.width := "1000px",
-            ^.height := "1000px",
-            ^.position := "absolute",
-            ^.ref := "edges"
-          ),
-          <.svg.svg(
-            ^.width := "1000px",
-            ^.height := "1000px",
-            ^.position := "absolute",
-            ^.ref := "vertices"
-          )
-        )
-      )
-    }
   }
 
   private val component = ReactComponentB[Props]("SmartComponent")
     .initialState_P(initialState)
-    .renderBackend[Backend]
+    .backend(new Backend(_))
+    .renderPS((_, p, s) => render(p, s))
     .componentDidMount(c => c.backend.update(c.props, c.state) >> c.backend.registerTick(c.state))
     .shouldComponentUpdate(c => { c.$.backend.update(c.currentProps, c.currentState).runNow(); false }) // let d3 update, instead of react
     .componentWillUnmount(c => c.backend.stopForce(c.state))
     .build
 
-  def apply(proxy: ModelProxy[Graph[Vertex, DiEdge]]) = component(Props(proxy))
+  def apply(proxy: ModelProxy[Graph[V, E]], width: Double, height: Double) = component(Props(proxy, width, height))
 }
