@@ -65,9 +65,72 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val actionHandler = composeHandlers(graphHandler)
 }
 
+trait Outlet
+case class Conference(name: String) extends Outlet
+case class Journal(name: String) extends Outlet
+case class Publication(title: String, authors: Seq[String]) //, keyWords: Seq[String] = Nil, outlet: Outlet, date: String, publisher: String, uri: String, recordId: String)
+
+case class Publications(publications: Seq[Publication]) {
+  def authors = publications.flatMap(_.authors).distinct
+}
+
 object Main extends JSApp {
 
+  implicit class NodeCollection(nodeList: NodeList) extends Iterable[Node] {
+    override def iterator = new Iterator[Node] {
+      var i = 0
+      def hasNext = i < nodeList.length
+      def next = {
+        val node = nodeList.item(i)
+        i += 1
+        node
+      }
+    }
+  }
+  implicit class NodeMapCollection(nodeList: NamedNodeMap) extends Iterable[(String, String)] {
+    override def iterator = new Iterator[(String, String)] {
+      var i = 0
+      def hasNext = i < nodeList.length
+      def next = {
+        val node = nodeList.item(i)
+        i += 1
+        (node.name -> node.value)
+      }
+    }
+  }
+
+  object NodeEx {
+    def unapply(node: Element): Option[(String, Seq[(String, String)], String, Seq[Node])] = {
+      Some((node.nodeName, node.attributes.toSeq, node.textContent, node.childNodes.toSeq))
+    }
+  }
+
+  def xmlToPublications(tree: Document): Publications = {
+    def extractTitle: PartialFunction[Node, String] = { case NodeEx("titleInfo", _, _, Seq(NodeEx("title", _, title, _))) => title }
+    //   val extractTitle: PartialFunction[DataRecord[ModsGroupOption], String] = { case DataRecord(_, Some("titleInfo"), TitleInfoType(List(DataRecord(_, _, title)), _)) => title }
+    //   val extractAuthor: PartialFunction[DataRecord[ModsGroupOption], (String, Int)] = {
+    //     case DataRecord(_, Some("name"), NameType(
+    //       DataRecord(_, _, NamePartType(author, _)) ::
+    //         DataRecord(_, _, NamePartType(termsOfAdress, _)) :: _,
+    //       attribute)
+    //       ) /*if attribute.get("@type").map(_.value) == Some("personal")*/ =>
+    //       (author, termsOfAdress.toInt)
+    //   }
+    val publications = tree.documentElement.childNodes.collect {
+      case mods @ NodeEx("mods", _, _, entries) if entries.collectFirst(extractTitle).isDefined =>
+        val title = entries.collectFirst(extractTitle).get
+        println(title)
+        Publication(title, Nil)
+    }.toSeq
+    println(publications)
+    Publications(publications)
+  }
+
   def main() {
+    val parser = new DOMParser
+    val tree = parser.parseFromString(ExampleData.xml, "text/xml")
+    xmlToPublications(tree)
+
     val sc = AppCircuit.connect(m => m)
     ReactDOM.render(sc(mainView(_)), document.getElementById("container"))
   }
