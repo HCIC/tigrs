@@ -106,23 +106,19 @@ object Main extends JSApp {
   }
 
   def xmlToPublications(tree: Document): Publications = {
-    def extractTitle: PartialFunction[Node, String] = { case NodeEx("titleInfo", _, _, Seq(NodeEx("title", _, title, _))) => title }
-    //   val extractTitle: PartialFunction[DataRecord[ModsGroupOption], String] = { case DataRecord(_, Some("titleInfo"), TitleInfoType(List(DataRecord(_, _, title)), _)) => title }
-    //   val extractAuthor: PartialFunction[DataRecord[ModsGroupOption], (String, Int)] = {
-    //     case DataRecord(_, Some("name"), NameType(
-    //       DataRecord(_, _, NamePartType(author, _)) ::
-    //         DataRecord(_, _, NamePartType(termsOfAdress, _)) :: _,
-    //       attribute)
-    //       ) /*if attribute.get("@type").map(_.value) == Some("personal")*/ =>
-    //       (author, termsOfAdress.toInt)
-    //   }
+    def extractTitle: PartialFunction[Node, String] = { case NodeEx("titleInfo", _, _, Seq(_, NodeEx("title", _, title, _), _)) => title }
+    val extractAuthor: PartialFunction[Node, (String, Int)] = {
+      case NodeEx("name", Seq(("type", "personal")), _, Seq(_, NodeEx("namePart", _, author, _), _, NodeEx("namePart", _, termsOfAdress, _), _)
+        ) =>
+        (author, termsOfAdress.toInt)
+    }
     val publications = tree.documentElement.childNodes.collect {
       case mods @ NodeEx("mods", _, _, entries) if entries.collectFirst(extractTitle).isDefined =>
         val title = entries.collectFirst(extractTitle).get
-        println(title)
-        Publication(title, Nil)
+        val authors = entries.collect(extractAuthor).toList.sortBy(_._2).map(_._1)
+        Publication(title, authors)
     }.toSeq
-    println(publications)
+    println(publications.mkString("\n\n"))
     Publications(publications)
   }
 
