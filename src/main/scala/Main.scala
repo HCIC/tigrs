@@ -32,6 +32,8 @@ import scalax.collection.Graph
 import scalax.collection.GraphPredef._
 import scalax.collection.GraphEdge._
 
+import domPatterns._
+
 case class Vertex(r: Double) {
   override def toString = s"V(${r.toInt})"
 }
@@ -68,42 +70,14 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
 trait Outlet
 case class Conference(name: String) extends Outlet
 case class Journal(name: String) extends Outlet
-case class Publication(title: String, authors: Seq[String]) //, keyWords: Seq[String] = Nil, outlet: Outlet, date: String, publisher: String, uri: String, recordId: String)
+case class Origin(date: String, publisher: Option[String])
+case class Publication(title: String, authors: Seq[String], keyWords: Seq[String] = Nil, outlet: Option[Outlet], origin: Origin, uri: Option[String], recordId: String)
 
 case class Publications(publications: Seq[Publication]) {
   def authors = publications.flatMap(_.authors).distinct
 }
 
 object Main extends JSApp {
-
-  implicit class NodeCollection(nodeList: NodeList) extends Iterable[Node] {
-    override def iterator = new Iterator[Node] {
-      var i = 0
-      def hasNext = i < nodeList.length
-      def next = {
-        val node = nodeList.item(i)
-        i += 1
-        node
-      }
-    }
-  }
-  implicit class NodeMapCollection(nodeList: NamedNodeMap) extends Iterable[(String, String)] {
-    override def iterator = new Iterator[(String, String)] {
-      var i = 0
-      def hasNext = i < nodeList.length
-      def next = {
-        val node = nodeList.item(i)
-        i += 1
-        (node.name -> node.value)
-      }
-    }
-  }
-
-  object NodeEx {
-    def unapply(node: Element): Option[(String, Seq[(String, String)], String, Seq[Node])] = {
-      Some((node.nodeName, node.attributes.toSeq, node.textContent, node.childNodes.toSeq))
-    }
-  }
 
   def xmlToPublications(tree: Document): Publications = {
     def extractTitle: PartialFunction[Node, String] = { case NodeEx("titleInfo", _, _, Seq(_, NodeEx("title", _, title, _), _)) => title }
@@ -112,13 +86,39 @@ object Main extends JSApp {
         ) =>
         (author, termsOfAdress.toInt)
     }
+    def extractKeyWords: PartialFunction[Node, Seq[String]] = { case NodeEx("subject", _, _, Seq(_, NodeEx("topic", _, keyWords, _), _)) => keyWords.split(",").flatMap(_.split(";")).map(_.trim) }
+    def extractConference: PartialFunction[Node, Conference] = {
+      case NodeEx("name", Seq(("type", "conference")), _, Seq(_, NodeEx("namePart", _, name, _), _*)) =>
+        Conference(name)
+    }
+    def extractJournal: PartialFunction[Node, Journal] = {
+      case NodeEx("relatedItem", Seq(("type", "host")), _, Seq(_, NodeEx("titleInfo", _, _, Seq(_, NodeEx("title", _, name, _), _)), _*)) =>
+        Journal(name)
+    }
+    def extractOrigin: PartialFunction[Node, Origin] = {
+      case NodeEx("originInfo", _, _, childNodes) =>
+        childNodes match {
+          case Seq(_, place, _, NodeEx("publisher", _, publisher, _), _, NodeEx("dateIssued", _, date, _), _) => Origin(date, Some(publisher))
+          case Seq(_, NodeEx("dateIssued", _, date, _), _) => Origin(date, None)
+        }
+    }
+    def extractUri: PartialFunction[Node, String] = {
+      case NodeEx("identifier", Seq(("type", "uri")), uri, _) => uri
+    }
+
+    def extractRecordId: PartialFunction[Node, String] = { case NodeEx("recordInfo", _, _, Seq(_, recordChangeDate, _, NodeEx("recordIdentifier", _, recordId, _), _)) => recordId }
+
     val publications = tree.documentElement.childNodes.collect {
       case mods @ NodeEx("mods", _, _, entries) if entries.collectFirst(extractTitle).isDefined =>
         val title = entries.collectFirst(extractTitle).get
         val authors = entries.collect(extractAuthor).toList.sortBy(_._2).map(_._1)
-        Publication(title, authors)
+        val keyWords = entries.collectFirst(extractKeyWords).getOrElse(Nil)
+        val outlet = entries.collectFirst(extractConference orElse extractJournal)
+        val origin = entries.collectFirst(extractOrigin).get
+        val uri = entries.collectFirst(extractUri)
+        val recordId = entries.collectFirst(extractRecordId).get
+        Publication(title, authors, keyWords, outlet, origin, uri, recordId)
     }.toSeq
-    println(publications.mkString("\n\n"))
     Publications(publications)
   }
 
