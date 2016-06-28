@@ -34,31 +34,18 @@ import scalax.collection.GraphEdge._
 
 import domPatterns._
 
-case class Vertex(r: Double) {
-  override def toString = s"V(${r.toInt})"
-}
-
-case class RootModel(graph: Graph[Vertex, DiEdge])
-case class AddVertex(v: Vertex) extends Action
-case class AddEdge(e: DiEdge[Vertex]) extends Action
-case class RemoveVertex(v: Vertex) extends Action
+case class RootModel(graph: Graph[PubVertex, DiEdge])
+case class SetGraph(graph: Graph[PubVertex, DiEdge]) extends Action
+case class AddVertex(v: PubVertex) extends Action
+case class AddEdge(e: DiEdge[PubVertex]) extends Action
+case class RemoveVertex(v: PubVertex) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
-  def initialModel = {
-    val vertexCount = 5
-    val edgeCount = 3
-    def rd = scala.util.Random.nextDouble
-    val vertices = Array.tabulate(vertexCount)(i => Vertex(5 + rd * 10))
-    def randomVertices(n: Int) = scala.util.Random.shuffle(vertices.toSeq).take(n)
-    val edges = Array.tabulate(edgeCount)(i => {
-      val vs = randomVertices(2);
-      DiEdge(vs(0), vs(1))
-    })
-    RootModel(Graph.from(vertices, edges))
-  }
+  def initialModel = RootModel(Graph.empty)
 
   val graphHandler = new ActionHandler(zoomRW(_.graph)((m, v) => m.copy(graph = v))) {
     override def handle = {
+      case SetGraph(g) => updated(g)
       case AddVertex(v) => updated(value + v)
       case AddEdge(e) => updated(value + e)
       case RemoveVertex(v) => updated(value - v)
@@ -67,18 +54,25 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val actionHandler = composeHandlers(graphHandler)
 }
 
+trait PubVertex
+
+case class Author(name: String) extends PubVertex
 trait Outlet
 case class Conference(name: String) extends Outlet
 case class Journal(name: String) extends Outlet
 case class Origin(date: String, publisher: Option[String])
-case class Publication(title: String, authors: Seq[String], keyWords: Seq[String] = Nil, outlet: Option[Outlet], origin: Origin, uri: Option[String], recordId: String)
+case class Publication(title: String, authors: Seq[Author], keyWords: Seq[String] = Nil, outlet: Option[Outlet], origin: Origin, uri: Option[String], recordId: String) extends PubVertex
 
 case class Publications(publications: Seq[Publication]) {
   def authors = publications.flatMap(_.authors).distinct
+  def toAuthorPublicationGraph: Graph[PubVertex, DiEdge] = {
+    val edges = publications.flatMap(p => p.authors.map(a => DiEdge(a, p)))
+    val vertices = publications ++ authors
+    Graph.from(vertices, edges)
+  }
 }
 
 object Main extends JSApp {
-
   def xmlToPublications(tree: Document): Publications = {
     def extractTitle: PartialFunction[Node, String] = { case NodeEx("titleInfo", _, _, Seq(_, NodeEx("title", _, title, _), _)) => title }
     val extractAuthor: PartialFunction[Node, (String, Int)] = {
@@ -111,7 +105,7 @@ object Main extends JSApp {
     val publications = tree.documentElement.childNodes.collect {
       case mods @ NodeEx("mods", _, _, entries) if entries.collectFirst(extractTitle).isDefined =>
         val title = entries.collectFirst(extractTitle).get
-        val authors = entries.collect(extractAuthor).toList.sortBy(_._2).map(_._1)
+        val authors = entries.collect(extractAuthor).toList.sortBy { case (_, termsOfAdress) => termsOfAdress }.map { case (name, _) => Author(name) }
         val keyWords = entries.collectFirst(extractKeyWords).getOrElse(Nil)
         val outlet = entries.collectFirst(extractConference orElse extractJournal)
         val origin = entries.collectFirst(extractOrigin).get
@@ -123,9 +117,21 @@ object Main extends JSApp {
   }
 
   def main() {
+    // import fr.hmil.roshttp.HttpRequest
+    // import scala.concurrent.ExecutionContext.Implicits.global
+    // val request = HttpRequest("http://publications.rwth-aachen.de/search").withQueryStringRaw("ln=de&p=I%3A%28DE-82%29080025_20140620&f=&action_search=Suchen&c=RWTH+Publications&sf=&so=d&rm=&rg=3&sc=0&of=xo")
+    // request.send().onSuccess {
+    //   case response =>
+    //     val xmlData = response.body
+    //     val parser = new DOMParser
+    //     val tree = parser.parseFromString(xmlData, "text/xml")
+    //     val publications = xmlToPublications(tree)
+    //     AppCircuit.dispatch(SetGraph(publications.toAuthorPublicationGraph))
+    // }
     val parser = new DOMParser
     val tree = parser.parseFromString(ExampleData.xml, "text/xml")
-    xmlToPublications(tree)
+    val publications = xmlToPublications(tree)
+    AppCircuit.dispatch(SetGraph(publications.toAuthorPublicationGraph))
 
     val sc = AppCircuit.connect(m => m)
     ReactDOM.render(sc(mainView(_)), document.getElementById("container"))
@@ -134,25 +140,21 @@ object Main extends JSApp {
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P(proxy =>
       <.div(
-        <.button(^.onClick --> proxy.dispatch(AddVertex(Vertex(r = scala.util.Random.nextDouble * 20 + 10))), "add vertex"),
-        <.button(^.onClick --> {
-          val vs = scala.util.Random.shuffle(proxy.value.graph.nodes.toSeq).sortBy(_.degree).take(2)
-          proxy.dispatch(AddEdge(DiEdge(vs(0).value, vs(1).value)))
-        }, "add edge"),
-        proxy.wrap(_.graph)(TigrsView(_, 400, 400)),
-        proxy.wrap(_.graph)(ClassicView(_, 200, 200))
+        proxy.wrap(_.graph)(TigrsView(_, 400, 400))
       ))
     .build
 }
 
-object TigrsView extends graphView.GraphView[Vertex, DiEdge] {
-  override def charge(v: Vertex) = v.r * v.r * (-2)
-  override def linkDistance(e: DiEdge[Vertex]) = 100
+object TigrsView extends graphView.GraphView[PubVertex, DiEdge] {
   override def styleVertices(sel: VertexSelection) = {
     super.styleVertices(sel)
-      .attr("r", (d: D3Vertex) => d.v.r)
-      .on("click", (d: D3Vertex) => AppCircuit.dispatch(RemoveVertex(d.v)))
+      .style("fill", (d: D3Vertex) => d.v match {
+        case _: Publication => "#4C90EB"
+        case _: Author => "#DB6F45"
+      })
+      .attr("title", (d: D3Vertex) => d.v match {
+        case p: Publication => p.title
+        case a: Author => a.name
+      })
   }
 }
-
-object ClassicView extends graphView.GraphView[Vertex, DiEdge]
