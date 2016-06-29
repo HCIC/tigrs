@@ -8,6 +8,8 @@ scalaVersion := "2.11.8"
 
 scalaJSUseRhino in Global := false // execute js with node
 
+scalaJSOptimizerOptions in (Compile, fullOptJS) ~= { _.withUseClosureCompiler(false) }
+
 libraryDependencies ++= (
   "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
   "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
@@ -15,7 +17,6 @@ libraryDependencies ++= (
   "me.chrons" %%% "diode-react" % "1.0.0" ::
   "org.singlespaced" %%% "scalajs-d3" % "0.3.3" ::
   "com.assembla.scala-incubator" %%% "graph-core" % "1.11.0" ::
-  "fr.hmil" %%% "roshttp" % "1.0.0" ::
   Nil
 )
 

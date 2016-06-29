@@ -56,10 +56,11 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
 
 trait PubVertex
 
-case class Author(name: String) extends PubVertex
+case class Author(name: String, id: String) extends PubVertex
 trait Outlet
 case class Conference(name: String) extends Outlet
 case class Journal(name: String) extends Outlet
+case class Series(name: String) extends Outlet
 case class Origin(date: String, publisher: Option[String])
 case class Publication(title: String, authors: Seq[Author], keyWords: Seq[String] = Nil, outlet: Option[Outlet], origin: Origin, uri: Option[String], recordId: String) extends PubVertex
 
@@ -75,10 +76,15 @@ case class Publications(publications: Seq[Publication]) {
 object Main extends JSApp {
   def xmlToPublications(tree: Document): Publications = {
     def extractTitle: PartialFunction[Node, String] = { case NodeEx("titleInfo", _, _, Seq(_, NodeEx("title", _, title, _), _)) => title }
-    val extractAuthor: PartialFunction[Node, (String, Int)] = {
-      case NodeEx("name", Seq(("type", "personal")), _, Seq(_, NodeEx("namePart", _, author, _), _, NodeEx("namePart", _, termsOfAdress, _), _)
+    val extractAuthor: PartialFunction[Node, (String, String, Int)] = {
+      case NodeEx("name", Seq(("type", "personal")), _, Seq(_,
+        NodeEx("namePart", _, author, _), _,
+        NodeEx("namePart", _, termsOfAdress, _), _,
+        role, _,
+        NodeEx("nameIdentifier", _, nameIdentifier, _), _
+        )
         ) =>
-        (author, termsOfAdress.toInt)
+        (author, nameIdentifier, termsOfAdress.toInt)
     }
     def extractKeyWords: PartialFunction[Node, Seq[String]] = { case NodeEx("subject", _, _, Seq(_, NodeEx("topic", _, keyWords, _), _)) => keyWords.split(",").flatMap(_.split(";")).map(_.trim) }
     def extractConference: PartialFunction[Node, Conference] = {
@@ -89,49 +95,65 @@ object Main extends JSApp {
       case NodeEx("relatedItem", Seq(("type", "host")), _, Seq(_, NodeEx("titleInfo", _, _, Seq(_, NodeEx("title", _, name, _), _)), _*)) =>
         Journal(name)
     }
+    def extractSeries: PartialFunction[Node, Series] = {
+      case NodeEx("relatedItem", Seq(("type", "series")), _, Seq(_, NodeEx("titleInfo", _, _, Seq(_, NodeEx("title", _, name, _), _)), _*)) =>
+        Series(name)
+    }
     def extractOrigin: PartialFunction[Node, Origin] = {
       case NodeEx("originInfo", _, _, childNodes) =>
-        childNodes match {
-          case Seq(_, place, _, NodeEx("publisher", _, publisher, _), _, NodeEx("dateIssued", _, date, _), _) => Origin(date, Some(publisher))
-          case Seq(_, NodeEx("dateIssued", _, date, _), _) => Origin(date, None)
-        }
+        val date = childNodes.find(_.nodeName == "dateIssued").get.textContent
+        val publisher = childNodes.find(_.nodeName == "publisher").map(_.textContent)
+        Origin(date, publisher)
     }
     def extractUri: PartialFunction[Node, String] = {
       case NodeEx("identifier", Seq(("type", "uri")), uri, _) => uri
     }
 
-    def extractRecordId: PartialFunction[Node, String] = { case NodeEx("recordInfo", _, _, Seq(_, recordChangeDate, _, NodeEx("recordIdentifier", _, recordId, _), _)) => recordId }
+    def extractRecordId: PartialFunction[Node, String] = {
+      case NodeEx("recordInfo", _, _, childNodes) =>
+        val recordId = childNodes.find(_.nodeName == "recordIdentifier").get.textContent
+        recordId
+    }
 
     val publications = tree.documentElement.childNodes.collect {
       case mods @ NodeEx("mods", _, _, entries) if entries.collectFirst(extractTitle).isDefined =>
-        val title = entries.collectFirst(extractTitle).get
-        val authors = entries.collect(extractAuthor).toList.sortBy { case (_, termsOfAdress) => termsOfAdress }.map { case (name, _) => Author(name) }
-        val keyWords = entries.collectFirst(extractKeyWords).getOrElse(Nil)
-        val outlet = entries.collectFirst(extractConference orElse extractJournal)
-        val origin = entries.collectFirst(extractOrigin).get
-        val uri = entries.collectFirst(extractUri)
-        val recordId = entries.collectFirst(extractRecordId).get
-        Publication(title, authors, keyWords, outlet, origin, uri, recordId)
+        try {
+          val title = entries.collectFirst(extractTitle).get
+          val authors = entries.collect(extractAuthor).toList.sortBy {
+            case (_, id, termsOfAdress) => termsOfAdress
+          }.map { case (name, id, _) => Author(name, id) }
+          val keyWords = entries.collectFirst(extractKeyWords).getOrElse(Nil)
+          val outlet = entries.collectFirst(extractConference orElse extractJournal orElse extractSeries)
+          val origin = entries.collectFirst(extractOrigin) match {
+            case Some(origin) => origin
+            case _ => println(mods.toString); Origin("", None)
+          }
+          val uri = entries.collectFirst(extractUri)
+          val recordId = entries.collectFirst(extractRecordId).get
+          Publication(title, authors, keyWords, outlet, origin, uri, recordId)
+        } catch {
+          case e: Exception =>
+            console.warn(e.getMessage)
+            console.warn("could not parse:", mods.asInstanceOf[js.Any])
+            throw e
+        }
     }.toSeq
+    println(publications.take(10).mkString("\n\n"))
     Publications(publications)
   }
 
   def main() {
-    // import fr.hmil.roshttp.HttpRequest
-    // import scala.concurrent.ExecutionContext.Implicits.global
-    // val request = HttpRequest("http://publications.rwth-aachen.de/search").withQueryStringRaw("ln=de&p=I%3A%28DE-82%29080025_20140620&f=&action_search=Suchen&c=RWTH+Publications&sf=&so=d&rm=&rg=3&sc=0&of=xo")
-    // request.send().onSuccess {
-    //   case response =>
-    //     val xmlData = response.body
-    //     val parser = new DOMParser
-    //     val tree = parser.parseFromString(xmlData, "text/xml")
-    //     val publications = xmlToPublications(tree)
-    //     AppCircuit.dispatch(SetGraph(publications.toAuthorPublicationGraph))
-    // }
-    val parser = new DOMParser
-    val tree = parser.parseFromString(ExampleData.xml, "text/xml")
-    val publications = xmlToPublications(tree)
-    AppCircuit.dispatch(SetGraph(publications.toAuthorPublicationGraph))
+
+    val xhr = new dom.XMLHttpRequest()
+    xhr.open("GET", "data/fak01a.xml")
+    xhr.onload = { (e: dom.Event) =>
+      if (xhr.status == 200) {
+        val tree = xhr.responseXML
+        val publications = xmlToPublications(tree)
+        AppCircuit.dispatch(SetGraph(publications.toAuthorPublicationGraph))
+      }
+    }
+    xhr.send()
 
     val sc = AppCircuit.connect(m => m)
     ReactDOM.render(sc(mainView(_)), document.getElementById("container"))
