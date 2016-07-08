@@ -29,7 +29,7 @@ object Main extends JSApp {
     xhr.onload = { (e: dom.Event) =>
       if (xhr.status == 200) {
         val publications = ModsParser.xmlToPublications(xhr.responseXML, nodeLimit)
-        AppCircuit.dispatch(SetGraph(publications.toAuthorPublicationGraph))
+        AppCircuit.dispatch(SetGraph(publications.toGraph))
       }
     }
     xhr.send()

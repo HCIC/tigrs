@@ -14,10 +14,12 @@ object GraphView extends D3ForceLayout[PubVertex, DiEdge] {
       .style("fill", (d: D3Vertex) => d.v match {
         case _: Publication => "#4C90EB"
         case _: Author => "#DB6F45"
+        case _: Outlet => "#20D74D"
       })
       .attr("title", (d: D3Vertex) => d.v match {
         case p: Publication => p.title
         case a: Author => a.name
+        case o: Outlet => o.name
       })
   }
 }
