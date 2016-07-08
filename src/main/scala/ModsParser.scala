@@ -52,7 +52,7 @@ object ModsParser {
           val title = entries.collectFirst(extractTitle).get
           val authors = entries.collect(extractAuthor).toList.sortBy {
             case (_, id, termsOfAdress) => termsOfAdress
-          }.map { case (name, id, _) => Author(name, id) }
+          }.map { case (name, id, _) => Author(id)(name) }
           val keyWords = entries.collectFirst(extractKeyWords).getOrElse(Nil)
           val outlet = entries.collectFirst(extractConference orElse extractJournal orElse extractSeries)
           val origin = entries.collectFirst(extractOrigin) match {
