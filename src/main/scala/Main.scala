@@ -14,8 +14,8 @@ import scala.annotation.meta.field
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import scalacss.Defaults._
-import scalacss.ScalaCssReact._
+// import scalacss.Defaults._
+// import scalacss.ScalaCssReact._
 
 import diode._
 import diode.ActionResult.ModelUpdate
@@ -31,6 +31,8 @@ import js.JSConverters._
 import scalax.collection.Graph
 import scalax.collection.GraphPredef._
 import scalax.collection.GraphEdge._
+
+import fdietze.scalajs.react.components.D3ForceLayout
 
 import domPatterns._
 
@@ -159,15 +161,17 @@ object Main extends JSApp {
     ReactDOM.render(sc(mainView(_)), document.getElementById("container"))
   }
 
+  val graphConnect = AppCircuit.connect(_.graph)
+
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P(proxy =>
       <.div(
-        proxy.wrap(_.graph)(TigrsView(_, 400, 400))
+        graphConnect(g => TigrsView(g.value, 400, 400))
       ))
     .build
 }
 
-object TigrsView extends graphView.GraphView[PubVertex, DiEdge] {
+object TigrsView extends D3ForceLayout[PubVertex, DiEdge] {
   override def styleVertices(sel: VertexSelection) = {
     super.styleVertices(sel)
       .style("fill", (d: D3Vertex) => d.v match {

@@ -13,10 +13,8 @@ scalaJSOptimizerOptions in (Compile, fullOptJS) ~= { _.withUseClosureCompiler(fa
 libraryDependencies ++= (
   "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
   "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
-  "com.github.japgolly.scalacss" %%% "ext-react" % "0.4.1" ::
   "me.chrons" %%% "diode-react" % "1.0.0" ::
-  "org.singlespaced" %%% "scalajs-d3" % "0.3.3" ::
-  "com.assembla.scala-incubator" %%% "graph-core" % "1.11.0" ::
+  "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1-SNAPSHOT" ::
   Nil
 )
 
