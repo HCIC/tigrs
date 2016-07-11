@@ -4,20 +4,20 @@ import scalax.collection.Graph
 import scalax.collection.GraphPredef._
 import scalax.collection.GraphEdge._
 
-trait PubVertex
+sealed trait PubVertex
+
+case class Publication(title: String, authors: Seq[Author], keywords: Seq[String] = Nil, outlet: Option[Outlet], origin: Origin, uri: Option[String], recordId: String) extends PubVertex
+
+case class Origin(date: String, publisher: Option[String])
 
 case class Author(id: String, name: String) extends PubVertex
 
-trait Outlet extends PubVertex {
+sealed trait Outlet extends PubVertex {
   def name: String
 }
 case class Conference(name: String) extends Outlet
 case class Journal(name: String) extends Outlet
 case class Series(name: String) extends Outlet
-
-case class Origin(date: String, publisher: Option[String])
-
-case class Publication(title: String, authors: Seq[Author], keyWords: Seq[String] = Nil, outlet: Option[Outlet], origin: Origin, uri: Option[String], recordId: String) extends PubVertex
 
 case class Publications(publications: Seq[Publication]) {
   def authors = publications.flatMap(_.authors).map(a => a.id -> a).toMap

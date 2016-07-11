@@ -17,7 +17,7 @@ object ModsParser {
         ) =>
         (author, nameIdentifier, termsOfAdress.toInt)
     }
-    def extractKeyWords: PartialFunction[Node, Seq[String]] = { case NodeEx("subject", _, _, Seq(_, NodeEx("topic", _, keyWords, _), _)) => keyWords.split(",").flatMap(_.split(";")).map(_.trim) }
+    def extractKeywords: PartialFunction[Node, Seq[String]] = { case NodeEx("subject", _, _, Seq(_, NodeEx("topic", _, keywords, _), _)) => keywords.split(",").flatMap(_.split("/")).flatMap(_.split(";")).map(_.trim) }
     def extractConference: PartialFunction[Node, Conference] = {
       case NodeEx("name", Seq(("type", "conference")), _, Seq(_, NodeEx("namePart", _, name, _), _*)) =>
         Conference(name)
@@ -53,7 +53,7 @@ object ModsParser {
           val authors = entries.collect(extractAuthor).toList.sortBy {
             case (_, id, termsOfAdress) => termsOfAdress
           }.map { case (name, id, _) => Author(id, name) }
-          val keyWords = entries.collectFirst(extractKeyWords).getOrElse(Nil)
+          val keywords = entries.collectFirst(extractKeywords).getOrElse(Nil)
           val outlet = entries.collectFirst(extractConference orElse extractJournal orElse extractSeries)
           val origin = entries.collectFirst(extractOrigin) match {
             case Some(origin) => origin
@@ -61,7 +61,7 @@ object ModsParser {
           }
           val uri = entries.collectFirst(extractUri)
           val recordId = entries.collectFirst(extractRecordId).get
-          Publication(title, authors, keyWords, outlet, origin, uri, recordId)
+          Publication(title, authors, keywords, outlet, origin, uri, recordId)
         } catch {
           case e: Exception =>
             console.warn(e.getMessage)

@@ -22,26 +22,63 @@ import js.JSConverters._
 
 object Main extends JSApp {
   def main() {
-    val nodeLimit = 100
+    val publicationLimit = 1000
 
     val xhr = new dom.XMLHttpRequest()
-    xhr.open("GET", "data/fak01a.xml")
+    xhr.open("GET", "data/fak01e.xml")
     xhr.onload = { (e: dom.Event) =>
       if (xhr.status == 200) {
-        val publications = ModsParser.xmlToPublications(xhr.responseXML, nodeLimit)
+        val publications = ModsParser.xmlToPublications(xhr.responseXML, publicationLimit)
         AppCircuit.dispatch(SetGraph(publications.toGraph))
       }
     }
     xhr.send()
 
+    val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
   }
 
-  val modelConnect = AppCircuit.connect(m => m)
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P(proxy =>
       <.div(
-        modelConnect(g => GraphView(g.value.graph, 400, 400))
+        ^.display := "flex",
+        ^.flex := "1 1 auto",
+        proxy.wrap(m => m.graph)(g => GraphView(g.value, 500, 500)),
+        proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+      ))
+    .build
+
+  val vertexView = ReactComponentB[ModelProxy[Option[PubVertex]]]("PublicationView")
+    .render_P(proxy =>
+      <.div(
+        ^.width := "400px",
+        proxy.value match {
+          case Some(v) =>
+            v match {
+              case Publication(title, authors, keywords, outlet, origin, uri, recordId) =>
+                <.div(
+                  <.h3(title),
+                  outlet.map(o => <.div(o.name)),
+                  <.ul(authors.map(a => <.li(a.name))),
+                  keywords.headOption.map(_ => "Keywords:"),
+                  <.ul(keywords.map(k => <.li(k))),
+                  <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
+                  uri.map(uri => <.a(^.href := uri, uri)),
+                  <.div(s"record: $recordId")
+                )
+              case a: Author =>
+                <.div(
+                  <.h3(a.name),
+                  a.id
+                )
+              case o: Outlet =>
+                <.div(
+                  <.h3(o.name)
+                )
+            }
+          case None => ""
+
+        }
       ))
     .build
 }
