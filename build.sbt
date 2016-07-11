@@ -39,12 +39,18 @@ jsDependencies ++= Seq(
     commonJSName "ReactDOMServer"
 )
 
-// workbench
+// workbench (refresh browser on compile)
 workbenchSettings
 
 bootSnippet := "tigrs.Main().main();"
 
-updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
+// updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
+
+refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
+
+// also watch on locally published libraries
+watchSources <++=
+  (managedClasspath in fastOptJS in Compile) map { cp => cp.files }
 
 // scalaxy (faster collection operations)
 // scalacOptions += "-Xplugin-require:scalaxy-streams"
