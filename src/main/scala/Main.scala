@@ -22,13 +22,11 @@ import js.JSConverters._
 
 object Main extends JSApp {
   def main() {
-    val publicationLimit = 1000
-
     val xhr = new dom.XMLHttpRequest()
     xhr.open("GET", "data/fak01e.xml")
     xhr.onload = { (e: dom.Event) =>
       if (xhr.status == 200) {
-        val publications = ModsParser.xmlToPublications(xhr.responseXML, publicationLimit)
+        val publications = ModsParser.xmlToPublications(xhr.responseXML, Global.publicationLimit)
         AppCircuit.dispatch(SetGraph(publications.toGraph))
       }
     }
@@ -41,10 +39,18 @@ object Main extends JSApp {
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P(proxy =>
       <.div(
-        ^.display := "flex",
-        ^.flex := "1 1 auto",
-        proxy.wrap(m => m.graph)(g => GraphView(g.value, 500, 500)),
-        proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+        <.div(
+          <.select(
+            ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetFaculty(e.target.value))),
+            Global.faculties.map(f => <.option(^.value := f, f))
+          )
+        ),
+        <.div(
+          ^.display := "flex",
+          ^.flex := "1 1 auto",
+          proxy.wrap(m => m.graph)(g => GraphView(g.value, 500, 500)),
+          proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+        )
       ))
     .build
 

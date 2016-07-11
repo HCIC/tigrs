@@ -10,6 +10,7 @@ case class Publication(title: String, authors: Seq[Author], keywords: Seq[String
 
 case class Origin(date: String, publisher: Option[String])
 
+//TODO: role
 case class Author(id: String, name: String) extends PubVertex
 
 sealed trait Outlet extends PubVertex {
