@@ -40,7 +40,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case SetFaculty(f) if Global.faculties contains f =>
 
         val xhr = new dom.XMLHttpRequest()
-        xhr.open("GET", s"data/$f.xml")
+        xhr.open("GET", s"/data/$f.xml")
         xhr.onload = { (e: dom.Event) =>
           if (xhr.status == 200) {
             val publications = ModsParser.xmlToPublications(xhr.responseXML, Global.publicationLimit)

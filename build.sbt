@@ -1,79 +1,102 @@
 import com.lihaoyi.workbench.Plugin._
 
-enablePlugins(ScalaJSPlugin)
-
 name := "tigrs"
 
-scalaVersion := "2.11.8"
+scalaVersion in ThisBuild := "2.11.8"
 
-scalaJSUseRhino in Global := false // execute js with node
+lazy val root = project.in(file(".")).
+  aggregate(tigrsJS, tigrsJVM).
+  settings(
+    publish := {},
+    publishLocal := {},
+    run in Compile <<= (run in Compile in tigrsJVM)
+  )
 
-scalaJSOptimizerOptions in (Compile, fullOptJS) ~= { _.withUseClosureCompiler(false) }
+lazy val tigrs = crossProject.in(file(".")).
+  settings(
+    name := "tigrs",
+    version := "0.1-SNAPSHOT",
 
-libraryDependencies ++= (
-  "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
-  "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
-  "me.chrons" %%% "diode-react" % "1.0.0" ::
-  "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1-SNAPSHOT" ::
-  Nil
-)
+    // scalaxy (faster collection operations)
+    scalacOptions += "-Xplugin-require:scalaxy-streams",
 
-// React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
-jsDependencies ++= Seq(
+    scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
 
-  "org.webjars.bower" % "react" % "15.1.0"
-    / "react-with-addons.js"
-    minified "react-with-addons.min.js"
-    commonJSName "react",
+    scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
 
-  "org.webjars.bower" % "react" % "15.1.0"
-    / "react-dom.js"
-    minified "react-dom.min.js"
-    dependsOn "react-with-addons.js"
-    commonJSName "ReactDOM",
+    autoCompilerPlugins := true,
 
-  "org.webjars.bower" % "react" % "15.1.0"
-    / "react-dom-server.js"
-    minified "react-dom-server.min.js"
-    dependsOn "react-dom.js"
-    commonJSName "ReactDOMServer"
-)
+    addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
 
-// workbench (refresh browser on compile)
-workbenchSettings
+    scalacOptions ++=
+      "-encoding" :: "UTF-8" ::
+      "-unchecked" ::
+      "-deprecation" ::
+      "-explaintypes" ::
+      "-feature" ::
+      "-language:_" ::
+      "-Xlint:_" ::
+      "-Ywarn-unused" ::
+      // "-Xdisable-assertions" ::
+      // "-optimize" ::
+      // "-Yopt:_" :: // enables all 2.12 optimizations
+      // "-Yinline" :: "-Yinline-warnings" ::
+      Nil,
 
-bootSnippet := "tigrs.Main().main();"
+      libraryDependencies ++= (
+        "com.assembla.scala-incubator" %%% "graph-core" % "1.11.0" ::
+       Nil
+     )
+  )
+  .jvmSettings()
+  .jsSettings(workbenchSettings ++ Seq(
+    persistLauncher := true,
+    persistLauncher in Test := false,
 
-// updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
+    scalaJSOptimizerOptions in (Compile, fullOptJS) ~= { _.withUseClosureCompiler(false) },
 
-refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
+    libraryDependencies ++= (
+      "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
+      "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
+      "me.chrons" %%% "diode-react" % "1.0.0" ::
+      "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1-SNAPSHOT" ::
+      Nil
+    ),
 
-// also watch on locally published libraries
-watchSources <++=
-  (managedClasspath in fastOptJS in Compile) map { cp => cp.files }
+    // React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
+    jsDependencies ++= Seq(
 
-// scalaxy (faster collection operations)
-// scalacOptions += "-Xplugin-require:scalaxy-streams"
+      "org.webjars.bower" % "react" % "15.1.0"
+        / "react-with-addons.js"
+        minified "react-with-addons.min.js"
+        commonJSName "react",
 
-// scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams"))
+      "org.webjars.bower" % "react" % "15.1.0"
+        / "react-dom.js"
+        minified "react-dom.min.js"
+        dependsOn "react-with-addons.js"
+        commonJSName "ReactDOM",
 
-// scalacOptions in Test += "-Xplugin-disable:scalaxy-streams"
+      "org.webjars.bower" % "react" % "15.1.0"
+        / "react-dom-server.js"
+        minified "react-dom-server.min.js"
+        dependsOn "react-dom.js"
+        commonJSName "ReactDOMServer"
+    ),
 
-// autoCompilerPlugins := true
+    // also watch on locally published libraries
+    watchSources <++=
+      (managedClasspath in Compile) map { cp => cp.files },
 
-// addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4")
+    // workbench (refresh browser on compile)
 
-scalacOptions ++=
-  "-encoding" :: "UTF-8" ::
-  "-unchecked" ::
-  "-deprecation" ::
-  "-explaintypes" ::
-  "-feature" ::
-  "-language:_" ::
-  "-Xlint:_" ::
-  "-Ywarn-unused" ::
-  // "-Xdisable-assertions" ::
-  // "-optimize" ::
-  // "-Yopt:_" :: // enables all 2.12 optimizations
-  // "-Yinline" :: "-Yinline-warnings" ::
-  Nil
+    bootSnippet := "tigrs.Main().main();",
+
+    // updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
+
+    refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
+
+  ): _*)
+
+lazy val tigrsJVM = tigrs.jvm
+lazy val tigrsJS = tigrs.js

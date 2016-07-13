@@ -44,16 +44,7 @@ object Global {
 
 object Main extends JSApp {
   def main() {
-    val xhr = new dom.XMLHttpRequest()
-    xhr.open("GET", "data/fak01e.xml")
-    xhr.onload = { (e: dom.Event) =>
-      if (xhr.status == 200) {
-        val publications = ModsParser.xmlToPublications(xhr.responseXML, Global.publicationLimit)
-        AppCircuit.dispatch(SetGraph(publications.toGraph))
-      }
-    }
-    xhr.send()
-
+    AppCircuit.dispatch(SetFaculty("fak00"))
     val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
   }
