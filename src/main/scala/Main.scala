@@ -20,6 +20,28 @@ import diode.react._
 
 import js.JSConverters._
 
+object Global {
+  val faculties = (
+    "fak00" ::
+    "fak01a" ::
+    "fak01b" ::
+    "fak01c" ::
+    "fak01d" ::
+    "fak01e" ::
+    "fak01f" ::
+    "fak02" ::
+    "fak03" ::
+    "fak04" ::
+    "fak05" ::
+    "fak06" ::
+    "fak07" ::
+    "fak08" ::
+    "fak10" ::
+    Nil
+  )
+  val publicationLimit = 10
+}
+
 object Main extends JSApp {
   def main() {
     val xhr = new dom.XMLHttpRequest()
@@ -61,7 +83,7 @@ object Main extends JSApp {
         proxy.value match {
           case Some(v) =>
             v match {
-              case Publication(title, authors, keywords, outlet, origin, uri, recordId) =>
+              case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
                 <.div(
                   <.h3(title),
                   outlet.map(o => <.div(o.name)),
@@ -70,7 +92,11 @@ object Main extends JSApp {
                   <.ul(keywords.map(k => <.li(k))),
                   <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
                   uri.map(uri => <.a(^.href := uri, uri)),
-                  <.div(s"record: $recordId")
+                  <.div(s"record: $recordId"),
+                  owner.map(_ => "Owner:"),
+                  owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
+                  projects.headOption.map(_ => "Projects:"),
+                  <.ul(projects.map(p => <.li(p.name)))
                 )
               case a: Author =>
                 <.div(

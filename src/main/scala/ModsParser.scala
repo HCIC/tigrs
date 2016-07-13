@@ -46,6 +46,20 @@ object ModsParser {
         recordId
     }
 
+    def extractOwner: PartialFunction[Node, Institute] = {
+      case NodeEx("location", _, _, locations) =>
+        Institute(
+          locations.collect {
+            case NodeEx("physicalLocation", Seq(("type", "collection")), ikz, _) => ikz
+          }
+        )
+    }
+
+    def extractProject: PartialFunction[Node, Project] = {
+      case NodeEx("note", Seq(_, ("type", "funding"), ("xlink:href", id)), name, _) =>
+        Project(id, name)
+    }
+
     val publications = tree.documentElement.childNodes.take(limit).collect {
       case mods @ NodeEx("mods", _, _, entries) if entries.collectFirst(extractTitle).isDefined =>
         try {
@@ -61,7 +75,10 @@ object ModsParser {
           }
           val uri = entries.collectFirst(extractUri)
           val recordId = entries.collectFirst(extractRecordId).get
-          Publication(title, authors, keywords, outlet, origin, uri, recordId)
+          val owner = entries.collectFirst(extractOwner)
+          val projects = entries.collect(extractProject)
+
+          Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects)
         } catch {
           case e: Exception =>
             console.warn(e.getMessage)
