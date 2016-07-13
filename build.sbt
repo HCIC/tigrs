@@ -43,12 +43,18 @@ lazy val tigrs = crossProject.in(file(".")).
       // "-Yinline" :: "-Yinline-warnings" ::
       Nil,
 
-      libraryDependencies ++= (
-        "com.assembla.scala-incubator" %%% "graph-core" % "1.11.0" ::
-       Nil
-     )
+    libraryDependencies ++= (
+      "me.chrons" %%% "boopickle" % "1.2.4" ::
+      "com.assembla.scala-incubator" %%% "graph-core" % "1.11.0" ::
+      Nil
+    )
   )
-  .jvmSettings()
+  .jvmSettings(
+    libraryDependencies ++= (
+      "org.scala-lang.modules" %% "scala-xml" % "1.0.5" ::
+      Nil
+    )
+  )
   .jsSettings(workbenchSettings ++ Seq(
     persistLauncher := true,
     persistLauncher in Test := false,
