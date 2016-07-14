@@ -36,6 +36,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
     }
   }
   val modelHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
+    val publicationLimit = 1000
     override def handle = {
       case SetFaculty(f) if Global.faculties contains f =>
 
@@ -43,7 +44,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
         xhr.open("GET", s"/data/$f.xml")
         xhr.onload = { (e: dom.Event) =>
           if (xhr.status == 200) {
-            val publications = ModsParser.xmlToPublications(xhr.responseXML, Global.publicationLimit)
+            val publications = ModsParser.xmlToPublications(xhr.responseXML, publicationLimit)
             AppCircuit.dispatch(SetGraph(publications.toGraph))
           }
         }

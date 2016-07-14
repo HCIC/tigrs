@@ -7,18 +7,23 @@ import scala.io.Source
 import scala.xml.XML
 
 object Main extends App {
-  val xmlFile = "data/fak00.xml"
-  // val xml = new XMLEventReader(Source.fromFile(xmlFile))
-  val xml = XML.loadFile(xmlFile)
+  val publications = Publications(Global.faculties.flatMap { faculty =>
+    print(s"parsing $faculty.xml ... ")
+    val xmlFile = s"data/$faculty.xml"
+    val xml = XML.loadFile(xmlFile)
+    val pubs = ModsParser.xmlToPublications(xml)
+    println(s"${pubs.publications.size} publications")
+    pubs.publications
+  })
 
-  val pubs = ModsParser.xmlToPublications(xml)
+  pickleIntoFile(publications, "data/fakall.boo")
 
-  // def pickleIntoFile(data: Publications, file: String) {
-  //   import java.io.File
-  //   import java.io.FileOutputStream
-  //   val channel = new FileOutputStream(new File(file), false).getChannel()
-  //   val buf = Pickle.intoBytes(data)
-  //   channel.write(buf)
-  //   channel.close()
-  // }
+  def pickleIntoFile(data: Publications, file: String) {
+    import java.io.File
+    import java.io.FileOutputStream
+    val channel = new FileOutputStream(new File(file), false).getChannel()
+    val buf = Pickle.intoBytes(data)
+    channel.write(buf)
+    channel.close()
+  }
 }
