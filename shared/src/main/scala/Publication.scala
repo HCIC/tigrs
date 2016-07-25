@@ -30,6 +30,15 @@ case class Author(id: String, name: String) extends PubVertex
 sealed trait Outlet extends PubVertex {
   def name: String
 }
+
+object PublicationPickler {
+  import boopickle.Default._
+  implicit val outletPickler = compositePickler[Outlet].
+    addConcreteType[Conference].
+    addConcreteType[Journal].
+    addConcreteType[Series]
+}
+
 case class Conference(name: String) extends Outlet
 case class Journal(name: String) extends Outlet
 case class Series(name: String) extends Outlet
