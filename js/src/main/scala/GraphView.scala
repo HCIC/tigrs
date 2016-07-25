@@ -18,6 +18,8 @@ object GraphView extends D3ForceLayout[PubVertex, DiEdge] {
         case _: Publication => "#4C90EB"
         case _: Author => "#DB6F45"
         case _: Outlet => "#20D74D"
+        case _: Project => "#D720AF"
+        case _: Keyword => "black"
       })
       .on("mouseover", (d: D3Vertex) => AppCircuit.dispatch(HoverVertex(d.v)))
       .on("mouseout", (d: D3Vertex) => AppCircuit.dispatch(UnHoverVertex))

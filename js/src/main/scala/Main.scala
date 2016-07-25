@@ -58,7 +58,7 @@ object Main extends JSApp {
                   outlet.map(o => <.div(o.name)),
                   <.ul(authors.map(a => <.li(a.name))),
                   keywords.headOption.map(_ => "Keywords:"),
-                  <.ul(keywords.map(k => <.li(k))),
+                  <.ul(keywords.map(k => <.li(k.keyword))),
                   <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
                   uri.map(uri => <.a(^.href := uri, uri)),
                   <.div(s"record: $recordId"),
@@ -75,6 +75,15 @@ object Main extends JSApp {
               case o: Outlet =>
                 <.div(
                   <.h3(o.name)
+                )
+              case k: Keyword =>
+                <.div(
+                  <.h3(k.keyword)
+                )
+              case p: Project =>
+                <.div(
+                  <.h3(p.name),
+                  <.h2(p.id)
                 )
             }
           case None => ""

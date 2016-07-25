@@ -14,9 +14,9 @@ object ModsParser {
         (author.text, nameIdentifier.text, termsOfAdress.text.toInt)
     }
 
-    def extractKeywords: PartialFunction[Node, Seq[String]] = {
+    def extractKeywords: PartialFunction[Node, Seq[Keyword]] = {
       case subject @ <subject>{ _, <topic>{ keywords }</topic>, _ }</subject> =>
-        keywords.text.split(",").flatMap(_.split("/")).flatMap(_.split(";")).map(_.trim)
+        keywords.text.split(",").flatMap(_.split("/")).flatMap(_.split(";")).map(s => Keyword(s.trim))
     }
 
     def extractConference: PartialFunction[Node, Conference] = {
