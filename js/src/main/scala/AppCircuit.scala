@@ -11,22 +11,35 @@ import scalax.collection.GraphPredef._
 import scalax.collection.GraphEdge._
 
 case class RootModel(
-  faculty: String = Global.faculties.head,
-  graph: Graph[PubVertex, DiEdge] = Graph.empty,
+  publicationVisualization: PublicationVisualization,
   hoveredVertex: Option[PubVertex] = None
 )
 
-case class SetFaculty(faculty: String) extends Action
-case class SetGraph(graph: Graph[PubVertex, DiEdge]) extends Action
+case class PublicationVisualization(
+  publications: Publications = Publications(Nil),
+  filters: Seq[GraphFilter] = Nil
+) {
+  lazy val graph: Graph[PubVertex, DiEdge] = {
+    println("constructing graph...")
+    val fullGraph = publications.toGraph
+    println("applying graph filters...")
+    val g = filters.foldLeft(fullGraph) { (g, f) => println(f.getClass.getName); f(g) }
+    println(s"displaying ${g.nodes.size} vertices...")
+    g
+  }
+}
+
+case class SetPublications(publications: Publications) extends Action
 case class HoverVertex(v: PubVertex) extends Action
 case object UnHoverVertex extends Action
+case object UpdateGraph extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
-  def initialModel = RootModel()
+  def initialModel = RootModel(PublicationVisualization(filters = List(MinDegreeFilter(7))))
 
-  val graphHandler = new ActionHandler(zoomRW(_.graph)((m, v) => m.copy(graph = v))) {
+  val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
     override def handle = {
-      case SetGraph(g) => updated(g)
+      case SetPublications(ps) => updated(value.copy(publications = ps))
     }
   }
   val previewHandler = new ActionHandler(zoomRW(_.hoveredVertex)((m, v) => m.copy(hoveredVertex = v))) {
@@ -35,22 +48,5 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case UnHoverVertex => updated(None)
     }
   }
-  val modelHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
-    val publicationLimit = 1000
-    override def handle = {
-      case SetFaculty(f) if Global.faculties contains f =>
-
-        val xhr = new dom.XMLHttpRequest()
-        xhr.open("GET", s"/data/$f.xml")
-        xhr.onload = { (e: dom.Event) =>
-          if (xhr.status == 200) {
-            val publications = ModsParser.xmlToPublications(xhr.responseXML, publicationLimit)
-            AppCircuit.dispatch(SetGraph(publications.toGraph))
-          }
-        }
-        xhr.send()
-        updated(value.copy(faculty = f))
-    }
-  }
-  val actionHandler = composeHandlers(graphHandler, previewHandler, modelHandler)
+  val actionHandler = composeHandlers(publicaitonsHandler, previewHandler)
 }

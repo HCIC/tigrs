@@ -18,11 +18,30 @@ import diode._
 import diode.ActionResult.ModelUpdate
 import diode.react._
 
+import boopickle.Default._
+
 import js.JSConverters._
+import scalajs.js.typedarray._
 
 object Main extends JSApp {
   def main() {
-    AppCircuit.dispatch(SetFaculty("fak00"))
+    val xhr = new dom.XMLHttpRequest()
+    xhr.open("GET", s"/data/fakall.boo")
+    xhr.onload = { (e: dom.Event) =>
+      if (xhr.status == 200) {
+        val byteBuffer = TypedArrayBuffer.wrap(xhr.response.asInstanceOf[ArrayBuffer])
+        import PublicationPickler._
+        val publications = Unpickle[Publications].fromBytes(byteBuffer)
+        println(s"parsing...")
+        println(s"loaded ${publications.publications.size} publications.")
+        AppCircuit.dispatch(SetPublications(publications))
+      }
+    }
+    xhr.responseType = "arraybuffer"
+    println(s"downloading publication data...")
+    xhr.send()
+
+    // AppCircuit.dispatch(SetFaculty("fak00"))
     val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
   }
@@ -30,16 +49,16 @@ object Main extends JSApp {
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P(proxy =>
       <.div(
-        <.div(
-          <.select(
-            ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetFaculty(e.target.value))),
-            Global.faculties.map(f => <.option(^.value := f, f))
-          )
-        ),
+        // <.div(
+        //   <.select(
+        //     ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetFaculty(e.target.value))),
+        //     Global.faculties.map(f => <.option(^.value := f, f))
+        //   )
+        // ),
         <.div(
           ^.display := "flex",
           ^.flex := "1 1 auto",
-          proxy.wrap(m => m.graph)(g => GraphView(g.value, 500, 500)),
+          proxy.wrap(m => m.publicationVisualization.graph)(g => GraphView(g.value, 500, 500)),
           proxy.wrap(m => m.hoveredVertex)(vertexView(_))
         )
       ))

@@ -50,7 +50,6 @@ case class Publications(publications: Seq[Publication]) {
   lazy val keywords = publications.flatMap(_.keywords).distinct
 
   lazy val toGraph: Graph[PubVertex, DiEdge] = {
-    println("constructing graph...")
     val authorToPublication = publications.flatMap(p => p.authors.map(a => DiEdge(authors(a.id), p)))
     val outletToPublication = publications.flatMap(p => p.outlet.map(o => DiEdge(o, p)))
     val projectToPublication = publications.flatMap(p => p.projects.map(pr => DiEdge(pr, p)))
@@ -58,7 +57,16 @@ case class Publications(publications: Seq[Publication]) {
 
     val edges = authorToPublication ++ outletToPublication ++ projectToPublication ++ keywordToPublication
     val vertices = publications ++ authors.values ++ outlets ++ projects ++ keywords
-    println("done")
     Graph.from(vertices, edges)
+  }
+}
+
+trait GraphFilter {
+  def apply(graph: Graph[PubVertex, DiEdge]): Graph[PubVertex, DiEdge]
+}
+
+case class MinDegreeFilter(minDegree: Int) extends GraphFilter {
+  def apply(graph: Graph[PubVertex, DiEdge]): Graph[PubVertex, DiEdge] = {
+    graph filter graph.having(node = _.degree >= minDegree)
   }
 }
