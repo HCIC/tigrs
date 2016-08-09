@@ -3,7 +3,7 @@ package tigrs
 import scala.xml._
 
 object ModsParser {
-  def xmlToPublications(tree: Elem, limit: Int = Integer.MAX_VALUE): Publications = {
+  def xmlToPublications(chunks: Iterator[Node], limit: Int = Integer.MAX_VALUE): Publications = {
     val extractAuthor: PartialFunction[Node, (String, String, Int)] = {
       case name @ <name>{ _,
         <namePart>{ author }</namePart>, _,
@@ -72,7 +72,7 @@ object ModsParser {
         Project(id, name.text)
     }
 
-    val publications: Seq[Publication] = (tree \ "mods").take(limit).collect {
+    val publications: Seq[Publication] = chunks.collect {
       case mods @ <mods>{ entries @ _* }</mods> if (mods \ "titleInfo" \ "title").nonEmpty =>
         try {
           // println("--------------------------")

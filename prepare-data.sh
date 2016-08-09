@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 mkdir -p data
 echo "downloading..."
 wget -nv --timestamping -i data-urls -P data
