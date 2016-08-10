@@ -26,7 +26,7 @@ import scalajs.js.typedarray._
 object Main extends JSApp {
   def main() {
     val xhr = new dom.XMLHttpRequest()
-    xhr.open("GET", s"/data/fakall.boo")
+    xhr.open("GET", s"data/fakall.boo")
     xhr.onload = { (e: dom.Event) =>
       if (xhr.status == 200) {
         val byteBuffer = TypedArrayBuffer.wrap(xhr.response.asInstanceOf[ArrayBuffer])
