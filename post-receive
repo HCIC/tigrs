@@ -17,4 +17,5 @@ puts `GIT_WORK_TREE="#{deploy_to_dir}" git checkout -f master`
 puts "DEPLOY: master(#{to}) copied to '#{deploy_to_dir}'"
 
 # 4. Deployment Tasks
+STDOUT.flush
 exec("cd #{deploy_to_dir}; ./deploy.sh")
