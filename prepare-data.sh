@@ -1,14 +1,15 @@
 #!/bin/bash -e
 echo "preparing data..."
-mkdir -p data
+
 echo "downloading..."
 wget -nv --timestamping -i data-urls -P data
 
-echo "transforming..."
-sbt run
-echo "compressing..."
-PATH=.:$PATH zopfli --i1 data/fakall.boo
+echo "transforming and compressing..."
+cd data
+    make
+cd ..
+
 ls -lh data
 
-mkdir out/data
+mkdir -p out/data
 cp data/fakall.boo.gz out/data
