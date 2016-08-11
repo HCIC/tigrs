@@ -15,8 +15,13 @@ object ModsParser {
     }
 
     def extractKeywords: PartialFunction[Node, Seq[Keyword]] = {
-      case subject @ <subject>{ _, <topic>{ keywords }</topic>, _ }</subject> =>
-        keywords.text.split(",").flatMap(_.split("/")).flatMap(_.split(";")).map(s => Keyword(s.trim))
+      case subject @ <subject>{ _* }</subject> =>
+        val topics = (subject \ "topic").map(_.text)
+        topics
+          .flatMap(_.split(","))
+          .flatMap(_.split("/"))
+          .flatMap(_.split(";"))
+          .map(s => Keyword(s.trim))
     }
 
     def extractConference: PartialFunction[Node, Conference] = {
@@ -75,19 +80,13 @@ object ModsParser {
     val publications: Seq[Publication] = chunks.collect {
       case mods @ <mods>{ entries @ _* }</mods> if (mods \ "titleInfo" \ "title").nonEmpty =>
         try {
-          // println("--------------------------")
-          // println(mods)
           val title = (mods \ "titleInfo" \ "title").text
           val authors = entries.collect(extractAuthor).toList.sortBy {
             case (_, id, termsOfAdress) => termsOfAdress
           }.map { case (name, id, _) => Author(id, name) }
 
-          // println(title)
-          // println(authors)
           val keywords = entries.collectFirst(extractKeywords).getOrElse(Nil)
-          // println(keywords)
           val outlet = entries.collectFirst(extractConference orElse extractJournal orElse extractSeries)
-          // println(outlet)
           val origin = entries.collectFirst(extractOrigin).get
           val uri = entries.collectFirst(extractUri)
           val recordId = entries.collectFirst(extractRecordId).get
@@ -102,7 +101,6 @@ object ModsParser {
             throw e
         }
     }.toSeq
-    // println(publications.take(10).mkString("\n\n"))
     Publications(publications)
   }
 
