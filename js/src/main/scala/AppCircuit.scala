@@ -17,13 +17,18 @@ case class RootModel(
 
 case class PublicationVisualization(
   publications: Publications = Publications(Nil),
-  filters: Seq[GraphFilter] = Nil
+  filters: Seq[Filter] = Nil
 ) {
+  lazy val publicationFilters = filters.collect { case f: PublicationFilter => f }
+  lazy val graphFilters = filters.collect { case f: GraphFilter => f }
   lazy val graph: Graph[PubVertex, DiEdge] = {
+
+    println("applying publication filters...")
+    val filteredPublications = publicationFilters.foldLeft(publications) { (g, f) => println(f.getClass.getName); f(g) }
     println("constructing graph...")
-    val fullGraph = publications.toGraph
+    val fullGraph = filteredPublications.toGraph
     println("applying graph filters...")
-    val g = filters.foldLeft(fullGraph) { (g, f) => println(f.getClass.getName); f(g) }
+    val g = graphFilters.foldLeft(fullGraph) { (g, f) => println(f.getClass.getName); f(g) }
     println(s"displaying ${g.nodes.size} vertices...")
     g
   }
@@ -33,9 +38,18 @@ case class SetPublications(publications: Publications) extends Action
 case class HoverVertex(v: PubVertex) extends Action
 case object UnHoverVertex extends Action
 case object UpdateGraph extends Action
+case class AddFilter(filter: Filter) extends Action
+case class RemoveFilter(index: Int) extends Action
+case class UpdateFilter(index: Int, filter: Filter) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
-  def initialModel = RootModel(PublicationVisualization(filters = List(MinDegreeFilter(7))))
+  def initialModel = RootModel(PublicationVisualization(
+    filters = (
+      PublicationKeywordFilter("Medizin") ::
+      PublicationLimitFilter(2000) ::
+      Nil
+    )
+  ))
 
   val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
     override def handle = {
@@ -48,5 +62,12 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case UnHoverVertex => updated(None)
     }
   }
-  val actionHandler = composeHandlers(publicaitonsHandler, previewHandler)
+  val filterHandler = new ActionHandler(zoomRW(_.publicationVisualization.filters)((m, v) => m.copy(publicationVisualization = m.publicationVisualization.copy(filters = v)))) {
+    override def handle = {
+      case AddFilter(f) => updated(f +: value)
+      case RemoveFilter(i) => updated(value.take(i) ++ value.drop(i + 1))
+      case UpdateFilter(i, f) => updated(value.updated(i, f))
+    }
+  }
+  val actionHandler = composeHandlers(publicaitonsHandler, previewHandler, filterHandler)
 }

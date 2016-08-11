@@ -11,7 +11,7 @@ import scala.xml._
 
 object Main extends App {
   val publications = Publications(Global.faculties.flatMap { faculty =>
-    print(s"parsing $faculty.xml... ")
+    print(s"parsing $faculty.xml... "); Console.flush()
     val xmlFile = s"data/$faculty.xml"
     if (new java.io.File(xmlFile).exists) {
       val it = new XMLEventReader(Source.fromFile(xmlFile))

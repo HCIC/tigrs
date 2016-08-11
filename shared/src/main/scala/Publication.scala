@@ -60,13 +60,3 @@ case class Publications(publications: Seq[Publication]) {
     Graph.from(vertices, edges)
   }
 }
-
-trait GraphFilter {
-  def apply(graph: Graph[PubVertex, DiEdge]): Graph[PubVertex, DiEdge]
-}
-
-case class MinDegreeFilter(minDegree: Int) extends GraphFilter {
-  def apply(graph: Graph[PubVertex, DiEdge]): Graph[PubVertex, DiEdge] = {
-    graph filter graph.having(node = _.degree >= minDegree)
-  }
-}

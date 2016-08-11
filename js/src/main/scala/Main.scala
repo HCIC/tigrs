@@ -39,7 +39,7 @@ object Main extends JSApp {
         val publications = Unpickle[Publications].fromBytes(byteBuffer)
         println(s"parsing...")
         println(s"loaded ${publications.publications.size} publications.")
-        AppCircuit.dispatch(SetPublications(Publications(publications.publications.take(10000))))
+        AppCircuit.dispatch(SetPublications(publications))
     }
 
     val modelConnect = AppCircuit.connect(m => m)
@@ -47,15 +47,20 @@ object Main extends JSApp {
   }
 
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
-    .render_P(proxy =>
+    .render_P { proxy =>
+      val model = proxy.value
       <.div(
+        <.div(
+          model.publicationVisualization.filters.map(_.toString)
+        ),
         <.div(
           ^.display := "flex",
           ^.flex := "1 1 auto",
           proxy.wrap(m => m.publicationVisualization.graph)(g => GraphView(g.value, 500, 500)),
           proxy.wrap(m => m.hoveredVertex)(vertexView(_))
         )
-      ))
+      )
+    }
     .build
 
   val vertexView = ReactComponentB[ModelProxy[Option[PubVertex]]]("PublicationView")
