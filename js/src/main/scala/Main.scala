@@ -46,13 +46,33 @@ object Main extends JSApp {
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
   }
 
+  def renderFilters(proxy: ModelProxy[RootModel]) = {
+    val model = proxy.value
+    val filters = model.publicationVisualization.filters
+    def update(filters: (String) => Filters)(e: ReactEventI) = {
+      proxy.dispatch(SetFilters(filters(e.target.value)))
+    }
+
+    <.div(
+      filters.filters.map {
+        case f: KeywordFilter =>
+          <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
+            ^.onChange ==> update(v => filters.copy(keyword = KeywordFilter(v)))))
+        case f: AuthorFilter =>
+          <.div("Author:", <.input(^.`type` := "text", ^.value := f.query,
+            ^.onChange ==> update(v => filters.copy(author = AuthorFilter(v)))))
+        case f: LimitFilter =>
+          <.div("Limit:", <.input(^.`type` := "number", ^.value := f.limit,
+            ^.onChange ==> update(v => filters.copy(limit = LimitFilter(v.toInt.abs)))))
+        case f => <.div(f.toString)
+      }
+    )
+  }
+
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
-      val model = proxy.value
       <.div(
-        <.div(
-          model.publicationVisualization.filters.map(_.toString)
-        ),
+        renderFilters(proxy),
         <.div(
           ^.display := "flex",
           ^.flex := "1 1 auto",

@@ -17,20 +17,18 @@ case class RootModel(
 
 case class PublicationVisualization(
   publications: Publications = Publications(Nil),
-  filters: Seq[Filter] = Nil
+  filters: Filters = Filters()
 ) {
-  lazy val publicationFilters = filters.collect { case f: PublicationFilter => f }
-  lazy val graphFilters = filters.collect { case f: GraphFilter => f }
   lazy val graph: Graph[PubVertex, DiEdge] = {
-
-    println("applying publication filters...")
-    val filteredPublications = publicationFilters.foldLeft(publications) { (g, f) => println(f.getClass.getName); f(g) }
-    println("constructing graph...")
-    val fullGraph = filteredPublications.toGraph
-    println("applying graph filters...")
-    val g = graphFilters.foldLeft(fullGraph) { (g, f) => println(f.getClass.getName); f(g) }
-    println(s"displaying ${g.nodes.size} vertices...")
-    g
+    if (publications.publications.isEmpty) Graph.empty
+    else {
+      val filteredPublications = filters.applyPubFilters(publications)
+      println("constructing graph...")
+      val fullGraph = filteredPublications.toGraph
+      val filteredGraph = filters.applyGraphFilters(fullGraph)
+      println(s"displaying ${filteredGraph.nodes.size} vertices...")
+      filteredGraph
+    }
   }
 }
 
@@ -38,22 +36,19 @@ case class SetPublications(publications: Publications) extends Action
 case class HoverVertex(v: PubVertex) extends Action
 case object UnHoverVertex extends Action
 case object UpdateGraph extends Action
-case class AddFilter(filter: Filter) extends Action
-case class RemoveFilter(index: Int) extends Action
-case class UpdateFilter(index: Int, filter: Filter) extends Action
+case class SetFilters(filter: Filters) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = RootModel(PublicationVisualization(
-    filters = (
-      PublicationKeywordFilter("Medizin") ::
-      PublicationLimitFilter(2000) ::
-      Nil
+    filters = Filters(
+      limit = LimitFilter(100)
     )
   ))
 
   val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
     override def handle = {
       case SetPublications(ps) => updated(value.copy(publications = ps))
+      case SetFilters(f) => updated(value.copy(filters = f))
     }
   }
   val previewHandler = new ActionHandler(zoomRW(_.hoveredVertex)((m, v) => m.copy(hoveredVertex = v))) {
@@ -62,12 +57,5 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case UnHoverVertex => updated(None)
     }
   }
-  val filterHandler = new ActionHandler(zoomRW(_.publicationVisualization.filters)((m, v) => m.copy(publicationVisualization = m.publicationVisualization.copy(filters = v)))) {
-    override def handle = {
-      case AddFilter(f) => updated(f +: value)
-      case RemoveFilter(i) => updated(value.take(i) ++ value.drop(i + 1))
-      case UpdateFilter(i, f) => updated(value.updated(i, f))
-    }
-  }
-  val actionHandler = composeHandlers(publicaitonsHandler, previewHandler, filterHandler)
+  val actionHandler = composeHandlers(publicaitonsHandler, previewHandler)
 }
