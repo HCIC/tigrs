@@ -51,6 +51,7 @@ lazy val tigrs = crossProject.in(file(".")).
   )
   .jvmSettings(
     libraryDependencies ++= (
+      "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
       "org.scala-lang.modules" %% "scala-xml" % "1.0.5" ::
       Nil
     )
@@ -87,7 +88,17 @@ lazy val tigrs = crossProject.in(file(".")).
         / "react-dom-server.js"
         minified "react-dom-server.min.js"
         dependsOn "react-dom.js"
-        commonJSName "ReactDOMServer"
+        commonJSName "ReactDOMServer",
+
+      "org.webjars.npm" % "elasticlunr" % "0.9.0"
+        / "release/elasticlunr.js"
+        minified "release/elasticlunr.min.js"
+        commonJSName "Elasticlunr",
+
+      "org.webjars.npm" % "dexie" % "1.4.1"
+        / "dist/dexie.js"
+        minified "dist/dexie.min.js"
+        commonJSName "Dexie"
     ),
 
     // also watch on locally published libraries

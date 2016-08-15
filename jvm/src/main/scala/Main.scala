@@ -52,8 +52,10 @@ object Main extends App {
     }
   })
 
-  println(s"serializing ${publications.publications.size} publication data into data/fakall.boo ...")
-  pickleIntoFile(publications, "data/fakall.boo")
+  println("removing duplicates")
+  val distinctPubs = publications.publications.map(p => p.recordId -> p).toMap.values.toSeq
+  println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
+  pickleIntoFile(Publications(distinctPubs), "data/fakall.boo")
 
   def pickleIntoFile(data: Publications, file: String) {
     import java.io.File

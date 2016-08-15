@@ -10,6 +10,8 @@ import org.singlespaced.d3js.Ops._
 
 object GraphView extends D3ForceLayout[PubVertex, DiEdge] {
   override val panAndZoom = true
+  // override def chargeDistance = 300
+  override def theta = 0.9
   override val vertexElement = "g"
   override def styleVertices(sel: VertexSelection) = {
     sel.append("circle")
