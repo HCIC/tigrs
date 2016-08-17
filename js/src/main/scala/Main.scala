@@ -106,7 +106,7 @@ object Database {
   def search(search: Search): Future[Publications] = {
     index.flatMap { index =>
       val result = index.asInstanceOf[js.Dynamic].search(search.title).asInstanceOf[js.Array[js.Dynamic]]
-      val keys = result.map((r: js.Dynamic) => r.ref)
+      val keys = result.map((r: js.Dynamic) => r.ref.asInstanceOf[String].toInt)
       val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
       resultDataF.map { resultData =>
         Publications(resultData.map { data =>

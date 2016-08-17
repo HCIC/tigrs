@@ -56,10 +56,10 @@ object ModsParser {
         uri.text
     }
 
-    def extractRecordId: PartialFunction[Node, String] = {
+    def extractRecordId: PartialFunction[Node, Int] = {
       case recordInfo @ <recordInfo>{ _* }</recordInfo> =>
         val recordId = (recordInfo \ "recordIdentifier").text
-        recordId
+        recordId.toInt
     }
 
     def extractOwner: PartialFunction[Node, Institute] = {

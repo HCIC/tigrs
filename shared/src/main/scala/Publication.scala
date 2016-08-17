@@ -20,7 +20,7 @@ case class Publication(
   outlet: Option[Outlet],
   origin: Origin,
   uri: Option[String],
-  recordId: String,
+  recordId: Int,
   owner: Option[Institute],
   projects: Seq[Project]
 ) extends PubVertex
