@@ -1,5 +1,7 @@
 package tigrs
 
+import scala.scalajs.js.annotation._
+
 import scalax.collection.Graph
 import scalax.collection.GraphPredef._
 import scalax.collection.GraphEdge._
@@ -10,6 +12,7 @@ case class Institute(ikz: Seq[String])
 case class Project(id: String, name: String) extends PubVertex
 case class Keyword(keyword: String) extends PubVertex
 
+@JSExportAll
 case class Publication(
   title: String,
   authors: Seq[Author],

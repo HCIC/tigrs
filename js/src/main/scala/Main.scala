@@ -34,124 +34,134 @@ import scala.scalajs.js.typedarray._
 
 import dom.ext.Ajax
 
-object Main extends JSApp {
+object Database {
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   val Dexie = js.Dynamic.global.Dexie
   val elasticlunr = js.Dynamic.global.elasticlunr
-  def toJSObject(o: AnyRef): js.Object = {
-    o match {
-      case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-        js.Dynamic.literal(
-          title = title,
-          authors = toJSObject(authors),
-          keywords = toJSObject(keywords),
-          outlet = outlet.map(toJSObject).orUndefined,
-          origin = toJSObject(origin),
-          uri = uri.map(toJSObject).orUndefined,
-          recordId = recordId,
-          owner = owner.map(toJSObject).orUndefined,
-          projects = toJSObject(projects)
-        )
-      case Institute(ikz) => js.Dynamic.literal(ikz = ikz)
-      case Project(id, name) => js.Dynamic.literal(id = id, name = name)
-      case Keyword(keyword) => js.Dynamic.literal(keyword = keyword)
-      case Origin(date, publisher) => js.Dynamic.literal(date = date, publisher = publisher.orUndefined)
-      case Author(id, name) => js.Dynamic.literal(id = id, name = name)
-      case Conference(name) => js.Dynamic.literal(name = name)
-      case Journal(name) => js.Dynamic.literal(name = name)
-      case Series(name) => js.Dynamic.literal(name = name)
-      case xs: Seq[_] => xs.toJSArray
+
+  val db = js.Dynamic.newInstance(Dexie)("publications_database")
+  db.version(2).stores(js.Dynamic.literal("publications" -> "", "meta" -> ""))
+  db.open()
+
+  val index: Future[js.Dynamic] = {
+    val storedDataCount = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture
+
+    storedDataCount.filter(_ > 0).flatMap { _ =>
+      println("loading index form local storage...")
+      val indexRequest = db.meta.get("searchindex").asInstanceOf[js.Promise[js.Dynamic]].toFuture
+      indexRequest.map { index => elasticlunr.Index.load(index) }
+    }.recoverWith {
+      case _ =>
+        println(s"downloading publication data...")
+        val downloadedData = Main.AjaxGetByteBuffer("data/fakall.boo").map {
+          case byteBuffer =>
+            import PublicationPickler._
+            val publications = Unpickle[Publications].fromBytes(byteBuffer)
+            println(s"downloaded ${publications.publications.size} publications.")
+            Publications(publications.publications.take(30000))
+        }
+
+        downloadedData.foreach { publications =>
+          println("storing publications...")
+
+          val items = publications.publications.map { p =>
+            import PublicationPickler._
+            val data = Pickle.intoBytes(p)
+            data.typedArray().subarray(data.position, data.limit)
+          }.toJSArray
+
+          val keys = publications.publications.map(_.recordId).toJSArray
+
+          db.publications.bulkPut(items, keys)
+          println("stored all publications")
+        }
+
+        downloadedData.map { publications =>
+          println("creating search index...")
+
+          val index = elasticlunr()
+          index.addField("title")
+          index.setRef("recordId")
+          index.saveDocument(false)
+
+          for (pub <- publications.publications) {
+            index.addDoc(pub.asInstanceOf[js.Any])
+            // index.addDoc(toJSObject(pub))
+          }
+          val storing = db.meta.put(index.toJSON(), "searchindex").asInstanceOf[js.Promise[js.Any]].toFuture
+
+          storing.onSuccess { case _ => console.log("successfully created and stored index.") }
+          storing.onFailure { case e => console.log("error storing index: ", e.asInstanceOf[js.Any]) }
+          index
+        }
     }
   }
 
-  import scala.concurrent.ExecutionContext.Implicits.global
-  def main() {
-    val db = js.Dynamic.newInstance(Dexie)("publications_database")
-    db.version(2).stores(js.Dynamic.literal("publications" -> "", "meta" -> ""))
-    db.open()
+  index.onSuccess {
+    case index =>
+      println("successfully initiated search index.")
+  }
 
-    import scala.concurrent.ExecutionContext.Implicits.global
-    val searchIndex: Future[js.Dynamic] = {
-      val storedDataCount = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture
-
-      storedDataCount.filter(_ > 0).flatMap { _ =>
-        println("loading index form local storage...")
-        val indexRequest = db.meta.get("searchindex").asInstanceOf[js.Promise[js.Dynamic]].toFuture
-        indexRequest.map { index => elasticlunr.Index.load(index) }
-      }.recoverWith {
-        case _ =>
-          println(s"downloading publication data...")
-          val downloadedData = AjaxGetByteBuffer("data/fakall.boo").map {
-            case byteBuffer =>
-              import PublicationPickler._
-              val publications = Unpickle[Publications].fromBytes(byteBuffer)
-              println(s"downloaded ${publications.publications.size} publications.")
-              Publications(publications.publications.take(30000))
-          }
-
-          downloadedData.foreach { publications =>
-            println("storing publications...")
-
-            val items = publications.publications.map { p =>
-              import PublicationPickler._
-              val data = Pickle.intoBytes(p)
-              data.typedArray().subarray(data.position, data.limit)
-            }.toJSArray
-
-            val keys = publications.publications.map(_.recordId).toJSArray
-
-            db.publications.bulkPut(items, keys)
-            println("stored all publications")
-          }
-
-          downloadedData.map { publications =>
-            println("creating search index...")
-
-            val index = elasticlunr()
-            index.addField("title")
-            index.setRef("recordId")
-            index.saveDocument(false)
-
-            for (pub <- publications.publications) {
-              index.addDoc(toJSObject(pub))
-            }
-            val storing = db.meta.put(index.toJSON(), "searchindex").asInstanceOf[js.Promise[js.Any]].toFuture
-
-            storing.onSuccess { case _ => console.log("successfully created and stored index.") }
-            storing.onFailure { case e => console.log("error storing index: ", e.asInstanceOf[js.Any]) }
-            index
-          }
-      }
-    }
-
-    searchIndex.onSuccess {
-      case index =>
-        println("successfully initiated search index.")
-    }
-
-    val dataRetrieval = for (index <- searchIndex) yield {
-      println("query data...")
-      val result = index.asInstanceOf[js.Dynamic].search("Helium").asInstanceOf[js.Array[js.Dynamic]]
+  def search(search: Search): Future[Publications] = {
+    index.flatMap { index =>
+      val result = index.asInstanceOf[js.Dynamic].search(search.title).asInstanceOf[js.Array[js.Dynamic]]
       val keys = result.map((r: js.Dynamic) => r.ref)
       val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
-      val resultMapF: Future[Map[String, Publication]] = resultDataF.map {
-        _.map { data =>
+      resultDataF.map { resultData =>
+        Publications(resultData.map { data =>
           import PublicationPickler._
-          val publication = Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
-          publication.recordId -> publication
-        }.toMap
+          Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
+        })
       }
+      // val resultMapF: Future[Map[String, Publication]] = resultDataF.map {
+      //   _.map { data =>
+      //     import PublicationPickler._
+      //     val publication = Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
+      //     publication.recordId -> publication
+      //   }.toMap
+      // }
 
-      for (resultMap <- resultMapF) {
-        val scoreMap = result.map { r => r.score -> resultMap(r.ref.asInstanceOf[String]) }
-        println(scoreMap.mkString("\n"))
-      }
+      // for (resultMap <- resultMapF) yield {
+      //   Publications(result.map { r => r.score -> resultMap(r.ref.asInstanceOf[String]) })
+      // }
     }
+  }
 
-    dataRetrieval.onFailure {
-      case e =>
-        println(s"data dataRetrieval onfailure: $e")
-    }
+  // def toJSObject(o: AnyRef): js.Object = {
+  //   o match {
+  //     case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
+  //       js.Dynamic.literal(
+  //         title = title,
+  //         authors = toJSObject(authors),
+  //         keywords = toJSObject(keywords),
+  //         outlet = outlet.map(toJSObject).orUndefined,
+  //         origin = toJSObject(origin),
+  //         uri = uri.map(toJSObject).orUndefined,
+  //         recordId = recordId,
+  //         owner = owner.map(toJSObject).orUndefined,
+  //         projects = toJSObject(projects)
+  //       )
+  //     case Institute(ikz) => js.Dynamic.literal(ikz = ikz)
+  //     case Project(id, name) => js.Dynamic.literal(id = id, name = name)
+  //     case Keyword(keyword) => js.Dynamic.literal(keyword = keyword)
+  //     case Origin(date, publisher) => js.Dynamic.literal(date = date, publisher = publisher.orUndefined)
+  //     case Author(id, name) => js.Dynamic.literal(id = id, name = name)
+  //     case Conference(name) => js.Dynamic.literal(name = name)
+  //     case Journal(name) => js.Dynamic.literal(name = name)
+  //     case Series(name) => js.Dynamic.literal(name = name)
+  //     case xs: Seq[_] => xs.toJSArray
+  //   }
+  // }
+}
+
+import Database._
+
+object Main extends JSApp {
+
+  import scala.concurrent.ExecutionContext.Implicits.global
+  def main() {
+    Database // init database
 
     val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
@@ -160,23 +170,26 @@ object Main extends JSApp {
   def renderFilters(proxy: ModelProxy[RootModel]) = {
     val model = proxy.value
     val filters = model.publicationVisualization.filters
+    val search = model.publicationVisualization.search
     def update(filters: (String) => Filters)(e: ReactEventI) = {
       proxy.dispatch(SetFilters(filters(e.target.value)))
     }
 
     <.div(
-      filters.filters.map {
-        case f: KeywordFilter =>
-          <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
-            ^.onChange ==> update(v => filters.copy(keyword = KeywordFilter(v)))))
-        case f: AuthorFilter =>
-          <.div("Author:", <.input(^.`type` := "text", ^.value := f.query,
-            ^.onChange ==> update(v => filters.copy(author = AuthorFilter(v)))))
-        case f: LimitFilter =>
-          <.div("Limit:", <.input(^.`type` := "number", ^.value := f.limit,
-            ^.onChange ==> update(v => filters.copy(limit = LimitFilter(v.toInt.abs)))))
-        case f => <.div(f.toString)
-      }
+      <.div("Title:", <.input(^.`type` := "text", ^.value := search.title,
+        ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetSearch(Search(title = e.target.value))))))
+    // filters.filters.map {
+    //   case f: KeywordFilter =>
+    //     <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
+    //       ^.onChange ==> update(v => filters.copy(keyword = KeywordFilter(v)))))
+    //   case f: AuthorFilter =>
+    //     <.div("Author:", <.input(^.`type` := "text", ^.value := f.query,
+    //       ^.onChange ==> update(v => filters.copy(author = AuthorFilter(v)))))
+    //   case f: LimitFilter =>
+    //     <.div("Limit:", <.input(^.`type` := "number", ^.value := f.limit,
+    //       ^.onChange ==> update(v => filters.copy(limit = LimitFilter(v.toInt.abs)))))
+    //   case f => <.div(f.toString)
+    // }
     )
   }
 
