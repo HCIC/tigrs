@@ -93,6 +93,7 @@ object Main extends JSApp {
             println("storing publications...")
 
             val items = publications.publications.map { p =>
+              import PublicationPickler._
               val data = Pickle.intoBytes(p)
               data.typedArray().subarray(data.position, data.limit)
             }.toJSArray
@@ -135,6 +136,7 @@ object Main extends JSApp {
       val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
       val resultMapF: Future[Map[String, Publication]] = resultDataF.map {
         _.map { data =>
+          import PublicationPickler._
           val publication = Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
           publication.recordId -> publication
         }.toMap
