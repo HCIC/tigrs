@@ -43,9 +43,15 @@ object Main extends App {
         return null // this shouldn't happen with good XML
       }
 
-      val pubs = ModsParser.xmlToPublications(slurp("mods"))
-      println(s"${pubs.publications.size} publications")
-      pubs.publications
+      try {
+        val pubs = ModsParser.xmlToPublications(slurp("mods"))
+        println(s"${pubs.publications.size} publications")
+        pubs.publications
+      } catch {
+        case e: Throwable =>
+          println(s"error: ${e.getMessage}")
+          Nil
+      }
     } else {
       println(s"file does not exist")
       Nil
