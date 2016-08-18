@@ -28,7 +28,9 @@ case class Publication(
 case class Origin(date: String, publisher: Option[String])
 
 //TODO: role
-case class Author(id: String, name: String) extends PubVertex
+case class Author(id: String, name: String) extends PubVertex {
+  override def hashCode = id.hashCode
+}
 
 sealed trait Outlet extends PubVertex {
   def name: String
@@ -53,12 +55,13 @@ case class Publications(publications: Seq[Publication]) {
   lazy val keywords = publications.flatMap(_.keywords).distinct
 
   lazy val toGraph: Graph[PubVertex, DiEdge] = {
-    val authorToPublication = publications.flatMap(p => p.authors.map(a => DiEdge(authors(a.id), p)))
-    val outletToPublication = publications.flatMap(p => p.outlet.map(o => DiEdge(o, p)))
-    val projectToPublication = publications.flatMap(p => p.projects.map(pr => DiEdge(pr, p)))
-    val keywordToPublication = publications.flatMap(p => p.keywords.map(k => DiEdge(k, p)))
+    val edges = publications.flatMap { p =>
+      p.authors.map(a => DiEdge(authors(a.id), p)) ++
+        p.outlet.map(o => DiEdge(o, p)) ++
+        p.projects.map(pr => DiEdge(pr, p)) ++
+        p.keywords.map(k => DiEdge(k, p))
+    }
 
-    val edges = authorToPublication ++ outletToPublication ++ projectToPublication ++ keywordToPublication
     val vertices = publications ++ authors.values ++ outlets ++ projects ++ keywords
     Graph.from(vertices, edges)
   }
