@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-NAME="tigrs"
+NAME="frontend"
 
 echo "building production assets..."
 sbt fullOptJS
@@ -8,7 +8,7 @@ sbt fullOptJS
 rm -rf out
 mkdir -p out
 cp index.html out
-cp js/target/scala-2.11/$NAME-{jsdeps.min.js,opt.js,launcher.js} out
+cp $NAME/target/scala-2.11/$NAME-{jsdeps.min.js,opt.js,launcher.js} out
 
 echo "compressing..."
 zopfli out/*

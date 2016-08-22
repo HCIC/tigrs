@@ -1,9 +1,4 @@
-/target
-/project/target
-/project/project/target
-/js/target
-/jvm/target
-/shared/target
+target/
 
 /data
 /out

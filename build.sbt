@@ -2,66 +2,92 @@ import com.lihaoyi.workbench.Plugin._
 
 name := "tigrs"
 
-scalaVersion in ThisBuild := "2.11.8"
+version := "0.1-SNAPSHOT"
 
-lazy val root = project.in(file(".")).
-  aggregate(tigrsJS, tigrsJVM).
-  settings(
+lazy val commonSettings = Seq(
+  scalaVersion := "2.11.8",
+
+  // scalaxy (faster collection operations)
+  scalacOptions += "-Xplugin-require:scalaxy-streams",
+
+  scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
+
+  scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
+
+  autoCompilerPlugins := true,
+
+  addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
+
+  scalacOptions ++=
+    "-encoding" :: "UTF-8" ::
+    "-unchecked" ::
+    "-deprecation" ::
+    "-explaintypes" ::
+    "-feature" ::
+    "-language:_" ::
+    "-Xlint:_" ::
+    "-Ywarn-unused" ::
+    // "-Xdisable-assertions" ::
+    // "-optimize" ::
+    // "-Yopt:_" :: // enables all 2.12 optimizations
+    // "-Yinline" :: "-Yinline-warnings" ::
+    Nil
+)
+
+lazy val root = project.in(file("."))
+  .settings(
     publish := {},
-    publishLocal := {},
-    run in Compile <<= (run in Compile in tigrsJVM)
+    publishLocal := {}
+  // run in Compile <<= (run in Compile in tigrsJVM)
   )
+  .aggregate(frontend)
 
-lazy val tigrs = crossProject.in(file(".")).
-  settings(
-    name := "tigrs",
-    version := "0.1-SNAPSHOT",
-
-    // scalaxy (faster collection operations)
-    scalacOptions += "-Xplugin-require:scalaxy-streams",
-
-    scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
-
-    scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
-
-    autoCompilerPlugins := true,
-
-    addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
-
-    scalacOptions ++=
-      "-encoding" :: "UTF-8" ::
-      "-unchecked" ::
-      "-deprecation" ::
-      "-explaintypes" ::
-      "-feature" ::
-      "-language:_" ::
-      "-Xlint:_" ::
-      "-Ywarn-unused" ::
-      // "-Xdisable-assertions" ::
-      // "-optimize" ::
-      // "-Yopt:_" :: // enables all 2.12 optimizations
-      // "-Yinline" :: "-Yinline-warnings" ::
-      Nil,
-
+lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes"))
+  .settings(commonSettings: _*)
+  .settings(
     libraryDependencies ++= (
+      "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
       "me.chrons" %%% "boopickle" % "1.2.4" ::
       "org.scala-graph" %%% "graph-core" % "1.11.1" ::
       Nil
     )
   )
-  .jvmSettings(
+
+lazy val datatypesJS = datatypes.js
+lazy val datatypesJVM = datatypes.jvm
+
+lazy val modsParser = (project in file("modsparser"))
+  .settings(commonSettings: _*)
+  .settings(
     libraryDependencies ++= (
-      "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
       "org.scala-lang.modules" %% "scala-xml" % "1.0.5" ::
       Nil
     ),
     scalacOptions += "-optimize"
   )
-  .jsSettings(workbenchSettings ++ Seq(
+  .dependsOn(datatypesJVM)
+
+lazy val indexer = (project in file("indexer"))
+  .settings(commonSettings: _*)
+  .settings(
+    // scalaJSUseRhino in Global := false,
+    jsEnv := NodeJSEnv().value,
+    jsDependencies ++= Seq(
+      "org.webjars.npm" % "elasticlunr" % "0.9.0"
+        / "release/elasticlunr.js"
+        minified "release/elasticlunr.min.js"
+        commonJSName "Elasticlunr"
+    )
+  )
+  .enablePlugins(ScalaJSPlugin)
+  .dependsOn(datatypesJS)
+
+lazy val frontend = (project in file("frontend"))
+  .settings(commonSettings: _*)
+  .settings(workbenchSettings: _*)
+  .settings(
     persistLauncher := true,
     persistLauncher in Test := false,
-
-    scalaJSOptimizerOptions in (Compile, fullOptJS) ~= { _.withUseClosureCompiler(false) },
 
     libraryDependencies ++= (
       "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
@@ -114,7 +140,6 @@ lazy val tigrs = crossProject.in(file(".")).
 
     refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
 
-  ): _*)
-
-lazy val tigrsJVM = tigrs.jvm
-lazy val tigrsJS = tigrs.js
+  )
+  .enablePlugins(ScalaJSPlugin)
+  .dependsOn(datatypesJS)
