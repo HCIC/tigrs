@@ -75,4 +75,25 @@ object Main extends App {
     channel.write(buf)
     channel.close()
   }
+
+  def loadPubData: Publications = {
+    import java.io.RandomAccessFile
+    import java.nio.ByteBuffer
+    import java.nio.channels.FileChannel
+    val aFile = new RandomAccessFile("data/fakall.boo", "r")
+    val inChannel = aFile.getChannel()
+    val fileSize = inChannel.size()
+    val buffer = ByteBuffer.allocate(fileSize.toInt)
+    inChannel.read(buffer)
+    buffer.flip()
+
+    implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
+    import PublicationPickler._
+    val pubs = Unpickle[Publications].fromBytes(buffer)
+
+    inChannel.close()
+    aFile.close()
+
+    pubs
+  }
 }
