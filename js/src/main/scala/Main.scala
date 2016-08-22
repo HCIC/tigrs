@@ -176,8 +176,17 @@ object Main extends JSApp {
     }
 
     <.div(
-      <.div("Title:", <.input(^.`type` := "text", ^.value := search.title,
-        ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetSearch(Search(title = e.target.value))))))
+      <.div("Title:", <.input(
+        ^.`type` := "text", // ^.value := search.title,
+        // ^.onChange --> Callback.empty,
+        ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
+          console.log(e)
+          if (e.charCode == 13)
+            proxy.dispatch(SetSearch(Search(title = e.target.value)))
+          else
+            Callback.empty
+        })
+      ))
     // filters.filters.map {
     //   case f: KeywordFilter =>
     //     <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
