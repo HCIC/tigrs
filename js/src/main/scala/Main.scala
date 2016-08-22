@@ -38,7 +38,7 @@ object Database {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   val Dexie = js.Dynamic.global.Dexie
-  val elasticlunr = js.Dynamic.global.elasticlunr
+  val lunr = js.Dynamic.global.lunr
 
   val db = js.Dynamic.newInstance(Dexie)("publications_database")
   db.version(2).stores(js.Dynamic.literal("publications" -> "", "meta" -> ""))
@@ -50,7 +50,7 @@ object Database {
     storedDataCount.filter(_ > 0).flatMap { _ =>
       println("loading index form local storage...")
       val indexRequest = db.meta.get("searchindex").asInstanceOf[js.Promise[js.Dynamic]].toFuture
-      indexRequest.map { index => elasticlunr.Index.load(index) }
+      indexRequest.map { index => lunr.Index.load(index) }
     }.recoverWith {
       case _ =>
         println(s"downloading publication data...")
@@ -80,14 +80,17 @@ object Database {
         downloadedData.map { publications =>
           println("creating search index...")
 
-          val index = elasticlunr()
-          index.addField("title")
-          index.setRef("recordId")
-          index.saveDocument(false)
+          val index = lunr({ (l: js.Dynamic) =>
+            l.pipeline.reset()
+            l.field("title")
+            l.ref("recordId")
+          })
+
+          // console.log(index)
 
           for (pub <- publications.publications) {
-            index.addDoc(pub.asInstanceOf[js.Any])
-            // index.addDoc(toJSObject(pub))
+            // index.add(pub.asInstanceOf[js.Any])
+            index.add(toJSObject(pub))
           }
           val storing = db.meta.put(index.toJSON(), "searchindex").asInstanceOf[js.Promise[js.Any]].toFuture
 
@@ -105,16 +108,11 @@ object Database {
 
   def search(search: Search): Future[Publications] = {
     index.flatMap { index =>
-      def obj = js.Dynamic.literal
-      val searchConfig = obj(
-        fields = obj(
-          title = obj(boost = 1)
-        ),
-        expand = true,
-        bool = "AND"
-      )
-      val result = index.asInstanceOf[js.Dynamic].search(search.title, searchConfig).asInstanceOf[js.Array[js.Dynamic]]
-      val keys = result.map((r: js.Dynamic) => r.ref.asInstanceOf[String].toInt)
+      console.log(index)
+      println("searching")
+      val result = index.asInstanceOf[js.Dynamic].search(search.title).asInstanceOf[js.Array[js.Dynamic]]
+      console.log(result)
+      val keys = result.map((r: js.Dynamic) => r.ref)
       val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
       resultDataF.map { resultData =>
         Publications(resultData.map { data =>
@@ -136,31 +134,31 @@ object Database {
     }
   }
 
-  // def toJSObject(o: AnyRef): js.Object = {
-  //   o match {
-  //     case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-  //       js.Dynamic.literal(
-  //         title = title,
-  //         authors = toJSObject(authors),
-  //         keywords = toJSObject(keywords),
-  //         outlet = outlet.map(toJSObject).orUndefined,
-  //         origin = toJSObject(origin),
-  //         uri = uri.map(toJSObject).orUndefined,
-  //         recordId = recordId,
-  //         owner = owner.map(toJSObject).orUndefined,
-  //         projects = toJSObject(projects)
-  //       )
-  //     case Institute(ikz) => js.Dynamic.literal(ikz = ikz)
-  //     case Project(id, name) => js.Dynamic.literal(id = id, name = name)
-  //     case Keyword(keyword) => js.Dynamic.literal(keyword = keyword)
-  //     case Origin(date, publisher) => js.Dynamic.literal(date = date, publisher = publisher.orUndefined)
-  //     case Author(id, name) => js.Dynamic.literal(id = id, name = name)
-  //     case Conference(name) => js.Dynamic.literal(name = name)
-  //     case Journal(name) => js.Dynamic.literal(name = name)
-  //     case Series(name) => js.Dynamic.literal(name = name)
-  //     case xs: Seq[_] => xs.toJSArray
-  //   }
-  // }
+  def toJSObject(o: AnyRef): js.Object = {
+    o match {
+      case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
+        js.Dynamic.literal(
+          title = title,
+          authors = toJSObject(authors),
+          keywords = toJSObject(keywords),
+          outlet = outlet.map(toJSObject).orUndefined,
+          origin = toJSObject(origin),
+          uri = uri.map(toJSObject).orUndefined,
+          recordId = recordId,
+          owner = owner.map(toJSObject).orUndefined,
+          projects = toJSObject(projects)
+        )
+      case Institute(ikz) => js.Dynamic.literal(ikz = ikz)
+      case Project(id, name) => js.Dynamic.literal(id = id, name = name)
+      case Keyword(keyword) => js.Dynamic.literal(keyword = keyword)
+      case Origin(date, publisher) => js.Dynamic.literal(date = date, publisher = publisher.orUndefined)
+      case Author(id, name) => js.Dynamic.literal(id = id, name = name)
+      case Conference(name) => js.Dynamic.literal(name = name)
+      case Journal(name) => js.Dynamic.literal(name = name)
+      case Series(name) => js.Dynamic.literal(name = name)
+      case xs: Seq[_] => xs.toJSArray
+    }
+  }
 }
 
 import Database._

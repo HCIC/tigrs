@@ -91,10 +91,10 @@ lazy val tigrs = crossProject.in(file(".")).
         dependsOn "react-dom.js"
         commonJSName "ReactDOMServer",
 
-      "org.webjars.npm" % "elasticlunr" % "0.9.0"
-        / "release/elasticlunr.js"
-        minified "release/elasticlunr.min.js"
-        commonJSName "Elasticlunr",
+      "org.webjars.npm" % "lunr" % "0.7.1"
+        / "0.7.1/lunr.js"
+        minified "lunr.min.js"
+        commonJSName "Lunr",
 
       "org.webjars.npm" % "dexie" % "1.4.1"
         / "dist/dexie.js"
