@@ -103,6 +103,12 @@ object Database {
       println("successfully initiated search index.")
   }
 
+  index.onFailure {
+    case e =>
+      console.log("error creating search index: ", e.asInstanceOf[js.Any])
+      throw e
+  }
+
   def search(search: Search): Future[Publications] = {
     index.flatMap { index =>
       def obj = js.Dynamic.literal

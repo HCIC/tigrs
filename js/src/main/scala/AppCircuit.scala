@@ -55,14 +55,18 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
 
   val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
     override def handle = {
-      case SetSearch(s) => updated(value.copy(search = s), Effect(Database.search(s).map { publications =>
-        val filteredPublications = value.filters.applyPubFilters(publications)
-        println(s"constructing graph from ${filteredPublications.publications.size} publications...")
-        val fullGraph = filteredPublications.toGraph
-        val filteredGraph = value.filters.applyGraphFilters(fullGraph)
-        println(s"displaying ${filteredGraph.nodes.size} vertices...")
-        SetGraph(filteredGraph)
-      }))
+      case SetSearch(s) => updated(value.copy(search = s), {
+        val search = Database.search(s)
+        search.onFailure { case e => throw e }
+        Effect(search.map { publications =>
+          val filteredPublications = value.filters.applyPubFilters(publications)
+          println(s"constructing graph from ${filteredPublications.publications.size} publications...")
+          val fullGraph = filteredPublications.toGraph
+          val filteredGraph = value.filters.applyGraphFilters(fullGraph)
+          println(s"displaying ${filteredGraph.nodes.size} vertices...")
+          SetGraph(filteredGraph)
+        })
+      })
       case SetFilters(f) => updated(value.copy(filters = f))
       case SetGraph(g) => updated(value.copy(graph = g))
     }
