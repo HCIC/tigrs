@@ -105,7 +105,15 @@ object Database {
 
   def search(search: Search): Future[Publications] = {
     index.flatMap { index =>
-      val result = index.asInstanceOf[js.Dynamic].search(search.title).asInstanceOf[js.Array[js.Dynamic]]
+      def obj = js.Dynamic.literal
+      val searchConfig = obj(
+        fields = obj(
+          title = obj(boost = 1)
+        ),
+        expand = true,
+        bool = "AND"
+      )
+      val result = index.asInstanceOf[js.Dynamic].search(search.title, searchConfig).asInstanceOf[js.Array[js.Dynamic]]
       val keys = result.map((r: js.Dynamic) => r.ref.asInstanceOf[String].toInt)
       val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
       resultDataF.map { resultData =>
