@@ -194,7 +194,6 @@ object Main extends JSApp {
         ^.`type` := "text", // ^.value := search.title,
         // ^.onChange --> Callback.empty,
         ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
-          console.log(e)
           if (e.charCode == 13)
             proxy.dispatch(SetSearch(Search(title = e.target.value)))
           else
