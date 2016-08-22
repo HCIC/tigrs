@@ -24,7 +24,7 @@ object Main extends App {
       }
 
       def subTree(tag: String, attrs: MetaData): Node = {
-        var children = mutable.ArrayBuffer[Node]()
+        val children = mutable.ArrayBuffer[Node]()
 
         while (it.hasNext) {
           it.next match {
