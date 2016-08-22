@@ -49,8 +49,7 @@ case class SetFilters(filter: Filters) extends Action
 case class SetGraph(graph: Graph[PubVertex, DiEdge]) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
-  def initialModel = RootModel(PublicationVisualization(filters = Filters(
-    limit = LimitFilter(100)
+  def initialModel = RootModel(PublicationVisualization(filters = Filters( // limit = LimitFilter(100)
   )))
 
   val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
