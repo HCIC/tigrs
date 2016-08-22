@@ -54,7 +54,8 @@ lazy val tigrs = crossProject.in(file(".")).
       "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
       "org.scala-lang.modules" %% "scala-xml" % "1.0.5" ::
       Nil
-    )
+    ),
+    scalacOptions += "-optimize"
   )
   .jsSettings(workbenchSettings ++ Seq(
     persistLauncher := true,
