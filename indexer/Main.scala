@@ -1,7 +1,7 @@
 package tigrs
 
 import scala.scalajs.js
-import scala.scalajs.js.JSApp
+import scala.scalajs.js.{JSApp,JSON}
 import js.Dynamic.{global => g}
 import js.DynamicImplicits._
 import boopickle.Default._
@@ -17,7 +17,7 @@ object TutorialApp extends JSApp {
     val index = createIndex(readPublications)
 
     println("writing index to data/fakall.boo.json...")
-    fs.writeFile("data/fakall.index.json", index.toJSON())
+    fs.writeFile("data/fakall.index.json", JSON.stringify(index.toJSON()))
   }
 
   def createIndex(pubs: Publications): js.Dynamic = {
@@ -30,8 +30,6 @@ object TutorialApp extends JSApp {
     for (pub <- pubs.publications) {
       index.addDoc(pub.asInstanceOf[js.Any])
     }
-
-    println(index._fields)
 
     index
   }
