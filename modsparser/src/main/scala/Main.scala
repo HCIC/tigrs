@@ -63,6 +63,9 @@ object Main extends App {
   println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
   pickleIntoFile(Publications(distinctPubs), "data/fakall.boo")
 
+  // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
+  // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")
+
   def pickleIntoFile(data: Publications, file: String) {
     import java.io.File
     import java.io.FileOutputStream
@@ -74,6 +77,14 @@ object Main extends App {
 
     channel.write(buf)
     channel.close()
+  }
+
+  def pickleIntoJsonFile(data: Publications, file: String) {
+    import upickle.default._
+    import java.io._
+
+    val json = write(data.publications)
+    Some(new PrintWriter(file)).foreach { p => p.write(json); p.close }
   }
 
   def loadPubData: Publications = {

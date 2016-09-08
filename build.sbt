@@ -61,6 +61,7 @@ lazy val modsParser = (project in file("modsparser"))
   .settings(
     libraryDependencies ++= (
       "org.scala-lang.modules" %% "scala-xml" % "1.0.5" ::
+      "com.lihaoyi" %% "upickle" % "0.4.1" ::
       Nil
     ),
     scalacOptions += "-optimize"
