@@ -5,16 +5,15 @@ import org.scalajs.dom
 import diode._
 import diode.ActionResult.ModelUpdate
 import diode.react._
+import pharg._
 
-import scalax.collection.Graph
-import scalax.collection.GraphPredef._
-import scalax.collection.GraphEdge._
+import cats.Monoid
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 case class RootModel(
   publicationVisualization: PublicationVisualization,
-  hoveredVertex: Option[PubVertex] = None
+  hoveredVertex: Option[graph.Vertex] = None
 )
 
 case class Search(title: String = "") {
@@ -24,7 +23,7 @@ case class Search(title: String = "") {
 case class PublicationVisualization(
   search: Search = Search(),
   filters: Filters = Filters(),
-  graph: Graph[PubVertex, DiEdge] = Graph.empty
+  graph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty
 ) {
   // lazy val graph: Graph[PubVertex, DiEdge] = {
   //   import Database._
@@ -41,12 +40,12 @@ case class PublicationVisualization(
   // }
 }
 
-case class HoverVertex(v: PubVertex) extends Action
+case class HoverVertex(v: graph.Vertex) extends Action
 case object UnHoverVertex extends Action
 // case object UpdateGraph extends Action
 case class SetSearch(search: Search) extends Action
 case class SetFilters(filter: Filters) extends Action
-case class SetGraph(graph: Graph[PubVertex, DiEdge]) extends Action
+case class SetGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = RootModel(PublicationVisualization(filters = Filters( // limit = LimitFilter(100)
@@ -58,11 +57,12 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
         val search = Database.search(s)
         search.onFailure { case e => throw e }
         Effect(search.map { publications =>
+          println(s"filtering ${publications.size} publications...")
           val filteredPublications = value.filters.applyPubFilters(publications)
-          println(s"constructing graph from ${filteredPublications.publications.size} publications...")
-          val fullGraph = filteredPublications.toGraph
+          println(s"constructing graph from ${filteredPublications.size} publications...")
+          val fullGraph = graph.pubGraph(filteredPublications)
           val filteredGraph = value.filters.applyGraphFilters(fullGraph)
-          println(s"displaying ${filteredGraph.nodes.size} vertices...")
+          println(s"displaying ${filteredGraph.vertices.size} vertices...")
           SetGraph(filteredGraph)
         })
       })

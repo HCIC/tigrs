@@ -17,29 +17,29 @@ object TutorialApp extends JSApp {
     val index = createIndex(readPublications)
 
     println("writing index to data/fakall.boo.json...")
-    fs.writeFile("data/fakall.index.json", JSON.stringify(index))
+    fs.writeFile("data/fakall.ikz.080025.index.json", JSON.stringify(index))
   }
 
-  def createIndex(pubs: Publications): js.Dynamic = {
+  def createIndex(pubs: Seq[Publication]): js.Dynamic = {
     println("creating search index...")
     val index = elasticlunr()
     index.addField("title")
     index.setRef("recordId")
     index.saveDocument(false)
 
-    for (pub <- pubs.publications) {
+    for (pub <- pubs) {
       index.addDoc(pub.asInstanceOf[js.Any])
     }
 
     index
   }
 
-  lazy val readPublications: Publications = {
-    println("reading data/fakall.boo...")
-    val buf = TypedArrayBuffer.wrap(fs.readFileSync("data/fakall.boo").asInstanceOf[ArrayBuffer])
+  lazy val readPublications: Seq[Publication] = {
+    println("reading data/fakall.ikz.080025.boo...")
+    val buf = TypedArrayBuffer.wrap(fs.readFileSync("data/fakall.ikz.080025.boo").asInstanceOf[ArrayBuffer])
 
     println("decoding...")
     import PublicationPickler._
-    Unpickle[Publications].fromBytes(buf)
+    Unpickle[Seq[Publication]].fromBytes(buf)
   }
 }

@@ -10,8 +10,8 @@ import scala.xml.pull._
 import scala.xml._
 
 object Main extends App {
-  val publications = Publications(Global.faculties.flatMap { faculty =>
-    print(s"parsing $faculty.xml... "); Console.flush()
+  val publications = Global.faculties.par.flatMap { faculty =>
+    // println(s"parsing $faculty.xml... ")
     val xmlFile = s"data/$faculty.xml"
     if (new java.io.File(xmlFile).exists) {
       val it = new XMLEventReader(Source.fromFile(xmlFile))
@@ -45,8 +45,8 @@ object Main extends App {
 
       try {
         val pubs = ModsParser.xmlToPublications(slurp("mods"))
-        println(s"${pubs.publications.size} publications")
-        pubs.publications
+        println(s"$faculty.xml: ${pubs.size} publications")
+        pubs
       } catch {
         case e: Throwable =>
           println(s"error: ${e.getMessage}")
@@ -56,17 +56,19 @@ object Main extends App {
       println(s"file does not exist")
       Nil
     }
-  })
+  }.seq
 
   println("removing duplicates")
-  val distinctPubs = publications.publications.map(p => p.recordId -> p).toMap.values.toSeq
+  val distinctPubs = publications.map(p => p.recordId -> p).toMap.values.toSeq
   println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
-  pickleIntoFile(Publications(distinctPubs), "data/fakall.boo")
+  pickleIntoFile(distinctPubs, "data/fakall.boo")
+  pickleIntoFile(graph.filterByIkz(distinctPubs, "080025"), "data/fakall.ikz.080025.boo")
+  pickleIntoFile(graph.pubGraph(graph.filterByIkz(distinctPubs, "080025")), "data/fakall.ikz.080025.graph.boo")
 
   // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
   // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")
 
-  def pickleIntoFile(data: Publications, file: String) {
+  def pickleIntoFile(data: Seq[Publication], file: String) {
     import java.io.File
     import java.io.FileOutputStream
     val channel = new FileOutputStream(new File(file), false).getChannel()
@@ -79,15 +81,20 @@ object Main extends App {
     channel.close()
   }
 
-  def pickleIntoJsonFile(data: Publications, file: String) {
-    import upickle.default._
-    import java.io._
+  def pickleIntoFile(data: pharg.DirectedGraph[tigrs.graph.Vertex], file: String) {
+    import java.io.File
+    import java.io.FileOutputStream
+    val channel = new FileOutputStream(new File(file), false).getChannel()
 
-    val json = write(data.publications)
-    Some(new PrintWriter(file)).foreach { p => p.write(json); p.close }
+    implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
+    import PublicationPickler._
+    val buf = Pickle.intoBytes(data)
+
+    channel.write(buf)
+    channel.close()
   }
 
-  def loadPubData: Publications = {
+  def loadPubData: Seq[Publication] = {
     import java.io.RandomAccessFile
     import java.nio.ByteBuffer
     import java.nio.channels.FileChannel
@@ -100,11 +107,20 @@ object Main extends App {
 
     implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
     import PublicationPickler._
-    val pubs = Unpickle[Publications].fromBytes(buffer)
+    val pubs = Unpickle[Seq[Publication]].fromBytes(buffer)
 
     inChannel.close()
     aFile.close()
 
     pubs
   }
+
+  def pickleIntoJsonFile(data: Seq[Publication], file: String) {
+    import upickle.default._
+    import java.io._
+
+    val json = write(data)
+    Some(new PrintWriter(file)).foreach { p => p.write(json); p.close }
+  }
+
 }

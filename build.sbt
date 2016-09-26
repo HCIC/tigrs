@@ -44,7 +44,7 @@ lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes")
     libraryDependencies ++= (
       "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
       "me.chrons" %%% "boopickle" % "1.2.4" ::
-      "org.scala-graph" %%% "graph-core" % "1.11.1" ::
+      "com.github.fdietze" %%% "pharg" % "0.1.0-SNAPSHOT" ::
       Nil
     )
   )

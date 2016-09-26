@@ -21,6 +21,8 @@ import diode.react._
 
 import boopickle.Default._
 
+import pharg._
+
 import js.JSConverters._
 import scalajs.js.typedarray._
 import concurrent.{Future, Promise}
@@ -49,13 +51,20 @@ object Database {
   db.version(2).stores(js.Dynamic.literal("publications" -> "", "meta" -> ""))
   db.open()
 
-  def downloadData: Future[Publications] = Main.AjaxGetByteBuffer("data/fakall.boo").map { byteBuffer =>
+  def downloadData: Future[Seq[Publication]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080025.boo").map { byteBuffer =>
     println("downloading publication data...")
     import PublicationPickler._
-    val publications = Unpickle[Publications].fromBytes(byteBuffer)
-    println(s"downloaded ${publications.publications.size} publications.")
-    Publications(publications.publications.take(30000))
-    // publications
+    val publications = Unpickle[Seq[Publication]].fromBytes(byteBuffer)
+    println(s"downloaded ${publications.size} publications.")
+    publications
+  }
+
+  def downloadGraph: Future[DirectedGraph[graph.Vertex]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080025.graph.boo").map { byteBuffer =>
+    println("downloading publication data...")
+    import PublicationPickler._
+    val g = Unpickle[DirectedGraph[graph.Vertex]].fromBytes(byteBuffer)
+    println(s"downloaded graph with ${g.vertices.size} vertices.")
+    g
   }
 
   def readStoredData: Future[Unit] = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture.map {
@@ -63,7 +72,7 @@ object Database {
     case _ => throw new NoSuchElementException
   }
 
-  def downloadIndex: Future[String] = Ajax.get("data/fakall.index.json").map { xhr =>
+  def downloadIndex: Future[String] = Ajax.get("data/fakall.ikz.080025.index.json").map { xhr =>
     println("downloading index...")
     xhr.response.asInstanceOf[String]
   }
@@ -93,16 +102,16 @@ object Database {
     storing.map { _ => Unit }
   }
 
-  def storeData(publications: Publications): Future[Unit] = {
+  def storeData(publications: Seq[Publication]): Future[Unit] = {
     println("storing publications...")
 
-    val items = publications.publications.toJSArray.map { p =>
+    val items = publications.toJSArray.map { p =>
       import PublicationPickler._
       val data = Pickle.intoBytes(p)
       data.typedArray().subarray(data.position, data.limit)
     }.toJSArray
 
-    val keys = publications.publications.map(_.recordId).toJSArray
+    val keys = publications.map(_.recordId).toJSArray
     val storing = db.publications.bulkPut(items, keys).asInstanceOf[js.Promise[js.Any]].toFuture
 
     storing.onSuccess { case _ => console.log("successfully stored publications.") }
@@ -112,6 +121,7 @@ object Database {
 
   val index: Future[js.Any] = async {
     val ensureData = readStoredData.recoverWith { case _ => downloadData flatMap storeData }
+    ensureData.onFailure { case e => console.log("data error: ", e.asInstanceOf[js.Any]) }
     val index = retrieveStoredIndex.recoverWith {
       case _ =>
         val downloaded = downloadIndex
@@ -126,7 +136,7 @@ object Database {
     i
   }
 
-  def search(search: Search): Future[Publications] = {
+  def search(search: Search): Future[Seq[Publication]] = {
     index.flatMap { index =>
       def obj = js.Dynamic.literal
       val searchConfig = obj(
@@ -142,10 +152,10 @@ object Database {
       val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
       console.log(resultDataF.asInstanceOf[js.Any])
       resultDataF.map { resultData =>
-        Publications(resultData.map { data =>
+        resultData.map { data =>
           import PublicationPickler._
           Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
-        })
+        }
       }
       // val resultMapF: Future[Map[String, Publication]] = resultDataF.map {
       //   _.map { data =>
@@ -196,6 +206,8 @@ object Main extends JSApp {
   def main() {
     Database // init database
 
+    downloadGraph.onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
+
     val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
   }
@@ -241,59 +253,59 @@ object Main extends JSApp {
         <.div(
           ^.display := "flex",
           ^.flex := "1 1 auto",
-          proxy.wrap(m => m.publicationVisualization.graph)(g => GraphView(g.value, 500, 500)),
-          proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+          proxy.wrap(m => m.publicationVisualization.graph)(g => GraphView(g.value, 500, 500))
+        // proxy.wrap(m => m.hoveredVertex)(vertexView(_))
         )
       )
     }
     .build
 
-  val vertexView = ReactComponentB[ModelProxy[Option[PubVertex]]]("PublicationView")
-    .render_P(proxy =>
-      <.div(
-        ^.width := "400px",
-        proxy.value match {
-          case Some(v) =>
-            v match {
-              case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-                <.div(
-                  <.h3(title),
-                  outlet.map(o => <.div(o.name)),
-                  <.ul(authors.map(a => <.li(a.name))),
-                  keywords.headOption.map(_ => "Keywords:"),
-                  <.ul(keywords.map(k => <.li(k.keyword))),
-                  <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
-                  uri.map(uri => <.a(^.href := uri, uri)),
-                  <.div(s"record: $recordId"),
-                  owner.map(_ => "Owner:"),
-                  owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
-                  projects.headOption.map(_ => "Projects:"),
-                  <.ul(projects.map(p => <.li(p.name)))
-                )
-              case a: Author =>
-                <.div(
-                  <.h3(a.name),
-                  a.id
-                )
-              case o: Outlet =>
-                <.div(
-                  <.h3(o.name)
-                )
-              case k: Keyword =>
-                <.div(
-                  <.h3(k.keyword)
-                )
-              case p: Project =>
-                <.div(
-                  <.h3(p.name),
-                  <.h2(p.id)
-                )
-            }
-          case None => ""
+  // val vertexView = ReactComponentB[ModelProxy[Option[PubVertex]]]("PublicationView")
+  //   .render_P(proxy =>
+  //     <.div(
+  //       ^.width := "400px",
+  //       proxy.value match {
+  //         case Some(v) =>
+  //           v match {
+  //             case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
+  //               <.div(
+  //                 <.h3(title),
+  //                 outlet.map(o => <.div(o.name)),
+  //                 <.ul(authors.map(a => <.li(a.name))),
+  //                 keywords.headOption.map(_ => "Keywords:"),
+  //                 <.ul(keywords.map(k => <.li(k.keyword))),
+  //                 <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
+  //                 uri.map(uri => <.a(^.href := uri, uri)),
+  //                 <.div(s"record: $recordId"),
+  //                 owner.map(_ => "Owner:"),
+  //                 owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
+  //                 projects.headOption.map(_ => "Projects:"),
+  //                 <.ul(projects.map(p => <.li(p.name)))
+  //               )
+  //             case a: Author =>
+  //               <.div(
+  //                 <.h3(a.name),
+  //                 a.id
+  //               )
+  //             case o: Outlet =>
+  //               <.div(
+  //                 <.h3(o.name)
+  //               )
+  //             case k: Keyword =>
+  //               <.div(
+  //                 <.h3(k.keyword)
+  //               )
+  //             case p: Project =>
+  //               <.div(
+  //                 <.h3(p.name),
+  //                 <.h2(p.id)
+  //               )
+  //           }
+  //         case None => ""
 
-        }
-      ))
-    .build
+  //       }
+  //     ))
+  //   .build
 
   def AjaxGetByteBuffer(url: String): Future[ByteBuffer] = {
     Ajax.get(

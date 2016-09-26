@@ -1,8 +1,6 @@
 package tigrs
 
-import scalax.collection.Graph
-import scalax.collection.GraphPredef._
-import scalax.collection.GraphEdge._
+import pharg._
 
 case class Filters(
   keyword: KeywordFilter = KeywordFilter(),
@@ -13,13 +11,13 @@ case class Filters(
   val graphFilters: Seq[GraphFilter] = List()
   val filters: Seq[Filter] = pubFilters ++ graphFilters
 
-  def applyPubFilters(publications: Publications): Publications = {
+  def applyPubFilters(publications: Seq[Publication]): Seq[Publication] = {
     println("applying publication filters...")
-    val filtered = pubFilters.foldLeft(publications.publications) { (g, f) => println(s" ${f.getClass.getName}"); f(g) }
-    Publications(filtered)
+    val filtered = pubFilters.foldLeft(publications) { (g, f) => println(s" ${f.getClass.getName}"); f(g) }
+    filtered
   }
 
-  def applyGraphFilters(graph: Graph[PubVertex, DiEdge]): Graph[PubVertex, DiEdge] = {
+  def applyGraphFilters(graph: DirectedGraph[tigrs.graph.Vertex]): DirectedGraph[tigrs.graph.Vertex] = {
     println("applying graph filters...")
     val filtered = graphFilters.foldLeft(graph) { (g, f) => println(s" ${f.getClass.getName}"); f(g) }
     filtered
@@ -28,7 +26,7 @@ case class Filters(
 
 sealed trait Filter
 sealed trait GraphFilter extends Filter {
-  def apply(graph: Graph[PubVertex, DiEdge]): Graph[PubVertex, DiEdge]
+  def apply(graph: DirectedGraph[tigrs.graph.Vertex]): DirectedGraph[tigrs.graph.Vertex]
 }
 sealed trait PublicationFilter extends Filter {
   def apply(publications: Seq[Publication]): Seq[Publication]
@@ -56,7 +54,7 @@ case class AuthorFilter(query: String = "") extends PublicationFilter {
 }
 
 case class MinDegreeFilter(minDegree: Int) extends GraphFilter {
-  def apply(graph: Graph[PubVertex, DiEdge]): Graph[PubVertex, DiEdge] = {
-    graph filter graph.having(node = _.degree >= minDegree)
+  def apply(graph: DirectedGraph[tigrs.graph.Vertex]): DirectedGraph[tigrs.graph.Vertex] = {
+    graph filter (graph.degree(_) >= minDegree)
   }
 }
