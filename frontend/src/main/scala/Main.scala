@@ -3,7 +3,7 @@ package tigrs
 import collection.mutable
 
 import scala.scalajs.js
-import scala.scalajs.js.JSApp
+import scala.scalajs.js.{JSApp, JSON}
 import js.JSConverters._
 import org.scalajs.dom
 import org.scalajs.dom._
@@ -32,81 +32,98 @@ import org.scalajs.dom.raw.IDBVersionChangeEvent
 import scala.scalajs.js.typedarray.TypedArrayBufferOps._
 import scala.scalajs.js.typedarray._
 
+// import ExecutionContext.Implicits.global
+import scala.async.Async.{async, await}
+
 import dom.ext.Ajax
 
+@JSExport
 object Database {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   val Dexie = js.Dynamic.global.Dexie
   val elasticlunr = js.Dynamic.global.elasticlunr
 
+  @JSExport
   val db = js.Dynamic.newInstance(Dexie)("publications_database")
   db.version(2).stores(js.Dynamic.literal("publications" -> "", "meta" -> ""))
   db.open()
 
-  val index: Future[js.Dynamic] = {
-    val storedDataCount = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture
+  def downloadData: Future[Publications] = Main.AjaxGetByteBuffer("data/fakall.boo").map { byteBuffer =>
+    println("downloading publication data...")
+    import PublicationPickler._
+    val publications = Unpickle[Publications].fromBytes(byteBuffer)
+    println(s"downloaded ${publications.publications.size} publications.")
+    Publications(publications.publications.take(30000))
+    // publications
+  }
 
-    storedDataCount.filter(_ > 0).flatMap { _ =>
-      println("loading index form local storage...")
-      val indexRequest = db.meta.get("searchindex").asInstanceOf[js.Promise[js.Dynamic]].toFuture
-      indexRequest.map { index => elasticlunr.Index.load(index) }
-    }.recoverWith {
-      case _ =>
-        println(s"downloading publication data...")
-        val downloadedData = Main.AjaxGetByteBuffer("data/fakall.boo").map {
-          case byteBuffer =>
-            import PublicationPickler._
-            val publications = Unpickle[Publications].fromBytes(byteBuffer)
-            println(s"downloaded ${publications.publications.size} publications.")
-            Publications(publications.publications.take(30000))
-        }
+  def readStoredData: Future[Unit] = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture.map {
+    case x if x > 0 =>
+    case _ => throw new NoSuchElementException
+  }
 
-        downloadedData.foreach { publications =>
-          println("storing publications...")
+  def downloadIndex: Future[String] = Ajax.get("data/fakall.index.json").map { xhr =>
+    println("downloading index...")
+    xhr.response.asInstanceOf[String]
+  }
 
-          val items = publications.publications.map { p =>
-            import PublicationPickler._
-            val data = Pickle.intoBytes(p)
-            data.typedArray().subarray(data.position, data.limit)
-          }.toJSArray
-
-          val keys = publications.publications.map(_.recordId).toJSArray
-
-          db.publications.bulkPut(items, keys)
-          println("stored all publications")
-        }
-
-        downloadedData.map { publications =>
-          println("creating search index...")
-
-          val index = elasticlunr()
-          index.addField("title")
-          index.setRef("recordId")
-          index.saveDocument(false)
-
-          for (pub <- publications.publications) {
-            index.addDoc(pub.asInstanceOf[js.Any])
-            // index.addDoc(toJSObject(pub))
-          }
-          val storing = db.meta.put(index.toJSON(), "searchindex").asInstanceOf[js.Promise[js.Any]].toFuture
-
-          storing.onSuccess { case _ => console.log("successfully created and stored index.") }
-          storing.onFailure { case e => console.log("error storing index: ", e.asInstanceOf[js.Any]) }
-          index
-        }
+  def retrieveStoredIndex: Future[String] = {
+    println("retrieving stored index...")
+    val request = db.meta.get("searchindex").asInstanceOf[js.Promise[js.UndefOr[String]]].toFuture.map(_.toOption).map {
+      case Some(index) => index
+      case _ => throw new NoSuchElementException
     }
+    request.onSuccess { case _ => console.log("successfully retrieved index.") }
+    // request.onFailure { case e => console.log("error retrieving index from storage: ", e.asInstanceOf[js.Any]) }
+    request
   }
 
-  index.onSuccess {
-    case index =>
-      println("successfully initiated search index.")
+  def loadIndex(_index: String): js.Dynamic = {
+    val index = JSON.parse(_index).asInstanceOf[js.Dynamic]
+    println("loading index...")
+    elasticlunr.Index.load(index)
   }
 
-  index.onFailure {
-    case e =>
-      console.log("error creating search index: ", e.asInstanceOf[js.Any])
-      throw e
+  def storeIndex(index: js.Any): Future[Unit] = {
+    println("storing index...")
+    val storing = db.meta.put(index, "searchindex").asInstanceOf[js.Promise[js.Any]].toFuture
+    storing.onSuccess { case _ => console.log("successfully stored index.") }
+    storing.onFailure { case e => console.log("error storing index: ", e.asInstanceOf[js.Any]) }
+    storing.map { _ => Unit }
+  }
+
+  def storeData(publications: Publications): Future[Unit] = {
+    println("storing publications...")
+
+    val items = publications.publications.toJSArray.map { p =>
+      import PublicationPickler._
+      val data = Pickle.intoBytes(p)
+      data.typedArray().subarray(data.position, data.limit)
+    }.toJSArray
+
+    val keys = publications.publications.map(_.recordId).toJSArray
+    val storing = db.publications.bulkPut(items, keys).asInstanceOf[js.Promise[js.Any]].toFuture
+
+    storing.onSuccess { case _ => console.log("successfully stored publications.") }
+    storing.onFailure { case e => console.log("error storing publications: ", e.asInstanceOf[js.Any]) }
+    storing.map { _ => Unit }
+  }
+
+  val index: Future[js.Any] = async {
+    val ensureData = readStoredData.recoverWith { case _ => downloadData flatMap storeData }
+    val index = retrieveStoredIndex.recoverWith {
+      case _ =>
+        val downloaded = downloadIndex
+        downloaded onSuccess { case i => storeIndex(i) }
+        downloaded
+    } map (loadIndex _)
+
+    await(ensureData)
+    println("data ready.")
+    val i = await(index)
+    println("index ready.")
+    i
   }
 
   def search(search: Search): Future[Publications] = {
@@ -119,9 +136,11 @@ object Database {
         expand = true,
         bool = "AND"
       )
+      console.log(obj.asInstanceOf[js.Any])
       val result = index.asInstanceOf[js.Dynamic].search(search.title, searchConfig).asInstanceOf[js.Array[js.Dynamic]]
       val keys = result.map((r: js.Dynamic) => r.ref.asInstanceOf[String].toInt)
       val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
+      console.log(resultDataF.asInstanceOf[js.Any])
       resultDataF.map { resultData =>
         Publications(resultData.map { data =>
           import PublicationPickler._

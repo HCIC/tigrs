@@ -8,15 +8,11 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.8",
 
   // scalaxy (faster collection operations)
-  scalacOptions += "-Xplugin-require:scalaxy-streams",
-
-  scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
-
-  scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
-
-  autoCompilerPlugins := true,
-
-  addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
+  // scalacOptions += "-Xplugin-require:scalaxy-streams",
+  // scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
+  // scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
+  // autoCompilerPlugins := true,
+  // addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
 
   scalacOptions ++=
     "-encoding" :: "UTF-8" ::
@@ -74,7 +70,7 @@ lazy val indexer = (project in file("indexer"))
     // scalaJSUseRhino in Global := false,
     jsEnv := NodeJSEnv().value,
     jsDependencies ++= Seq(
-      "org.webjars.npm" % "elasticlunr" % "0.9.0"
+      "org.webjars.npm" % "elasticlunr" % "0.9.5"
         / "release/elasticlunr.js"
         minified "release/elasticlunr.min.js"
         commonJSName "Elasticlunr"
@@ -95,6 +91,7 @@ lazy val frontend = (project in file("frontend"))
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
       "me.chrons" %%% "diode-react" % "1.0.0" ::
       "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1-SNAPSHOT" ::
+      "org.scala-lang.modules" %% "scala-async" % "0.9.5" ::
       Nil
     ),
 
@@ -118,7 +115,7 @@ lazy val frontend = (project in file("frontend"))
         dependsOn "react-dom.js"
         commonJSName "ReactDOMServer",
 
-      "org.webjars.npm" % "elasticlunr" % "0.9.0"
+      "org.webjars.npm" % "elasticlunr" % "0.9.5"
         / "release/elasticlunr.js"
         minified "release/elasticlunr.min.js"
         commonJSName "Elasticlunr",
@@ -134,11 +131,8 @@ lazy val frontend = (project in file("frontend"))
       (managedClasspath in Compile) map { cp => cp.files },
 
     // workbench (refresh browser on compile)
-
     bootSnippet := "tigrs.Main().main();",
-
     // updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
-
     refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
 
   )
