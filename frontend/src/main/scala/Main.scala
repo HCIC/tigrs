@@ -249,12 +249,20 @@ object Main extends JSApp {
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
       <.div(
-        renderFilters(proxy),
+        proxy.wrap(m => m.publicationVisualization.graph)(g => GraphView(g.value, 500, 500, Some(GraphProps(200)))),
         <.div(
-          ^.display := "flex",
-          ^.flex := "1 1 auto",
-          proxy.wrap(m => m.publicationVisualization.graph)(g => GraphView(g.value, 500, 500))
-        // proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+          ^.position := "absolute",
+          ^.top := "30px",
+          ^.left := "30px",
+          ^.background := "white",
+          ^.border := "1px solid #DDD",
+          ^.padding := "10px",
+          renderFilters(proxy),
+          <.div(
+            ^.display := "flex",
+            ^.flex := "1 1 auto"
+          // proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+          )
         )
       )
     }

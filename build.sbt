@@ -27,7 +27,11 @@ lazy val commonSettings = Seq(
     // "-optimize" ::
     // "-Yopt:_" :: // enables all 2.12 optimizations
     // "-Yinline" :: "-Yinline-warnings" ::
-    Nil
+    Nil,
+
+  // also watch on locally published libraries
+  watchSources <++=
+    (managedClasspath in Compile) map { cp => cp.files }
 )
 
 lazy val root = project.in(file("."))
@@ -90,7 +94,7 @@ lazy val frontend = (project in file("frontend"))
       "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
       "me.chrons" %%% "diode-react" % "1.0.0" ::
-      "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1-SNAPSHOT" ::
+      "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1.0-SNAPSHOT" ::
       "org.scala-lang.modules" %% "scala-async" % "0.9.5" ::
       Nil
     ),
@@ -125,10 +129,6 @@ lazy val frontend = (project in file("frontend"))
         minified "dist/dexie.min.js"
         commonJSName "Dexie"
     ),
-
-    // also watch on locally published libraries
-    watchSources <++=
-      (managedClasspath in Compile) map { cp => cp.files },
 
     // workbench (refresh browser on compile)
     bootSnippet := "tigrs.Main().main();",
