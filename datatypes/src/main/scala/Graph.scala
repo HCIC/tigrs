@@ -6,26 +6,49 @@ package graph {
   sealed trait Vertex
   case class Author(id: String) extends Vertex
   case class Publication(id: Int) extends Vertex
+  case class Keyword(keyword: String) extends Vertex
+  case class Project(id: String) extends Vertex
+  case class Outlet(name: String) extends Vertex
 }
 
 package object graph {
   def filterByIkz(publications: Seq[tigrs.Publication], ikz: String): Seq[tigrs.Publication] = publications.filter(_.owner.map(_.ikz).toSeq.flatten contains ikz)
 
   def pubGraph(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
-
     val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
     val pubs = publications.map(p => Publication(p.recordId))
-    // val outlets = publications.flatMap(_.outlet).distinct
-    // val projects = publications.flatMap(_.projects).distinct
-    // val keywords = publications.flatMap(_.keywords).distinct
+    val outlets = publications.flatMap(_.outlet.map(o => Outlet(o.name))).distinct
+    val projects = publications.flatMap(_.projects.map(p => Project(p.id))).distinct
+    val keywords = publications.flatMap(_.keywords.map(k => Keyword(k.keyword))).distinct
 
-    val vertices = authors.values ++ pubs
+    val vertices = authors.values ++ pubs ++ outlets ++ projects ++ keywords
 
     val edges: Seq[Edge[Vertex]] = publications.flatMap { p =>
-      p.authors.map(a => Edge[Vertex](authors(a.id), Publication(p.recordId))) // ++
-      // p.outlet.map(o => DiEdge(o, p)) ++
-      // p.projects.map(pr => DiEdge(pr, p)) ++
-      // p.keywords.map(k => DiEdge(k, p))
+      p.authors.map(a => Edge[Vertex](authors(a.id), Publication(p.recordId))) ++
+        p.outlet.map(o => Edge[Vertex](Outlet(o.name), Publication(p.recordId))) ++
+        p.projects.map(pr => Edge[Vertex](Project(pr.id), Publication(p.recordId))) ++
+        p.keywords.map(k => Edge[Vertex](Keyword(k.keyword), Publication(p.recordId)))
+    }
+    DirectedGraph(vertices.toSet, edges.toSet)
+  }
+
+  def authorGraph(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
+    val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
+    val vertices = authors.values
+
+    val edges: Seq[Edge[Vertex]] = publications.flatMap { p =>
+      p.authors.combinations(2).map { case Seq(a, b) => Edge[Vertex](authors(a.id), authors(b.id)) }
+    }
+    DirectedGraph(vertices.toSet, edges.toSet)
+  }
+
+  def pubGraphByAuthor(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
+    val pubs = publications.map(p => Publication(p.recordId))
+    val vertices = pubs
+
+    val edges = publications.combinations(2).collect {
+      case Seq(a, b) if (a.authors == b.authors) =>
+        Edge[Vertex](Publication(a.recordId), Publication(b.recordId))
     }
     DirectedGraph(vertices.toSet, edges.toSet)
   }

@@ -60,7 +60,7 @@ object Database {
     publications
   }
 
-  def downloadGraph: Future[DirectedGraph[graph.Vertex]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080025.graph.boo").map { byteBuffer =>
+  def downloadGraph: Future[DirectedGraph[graph.Vertex]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080025.graph.byauthor.boo").map { byteBuffer =>
     println("downloading publication data...")
     import PublicationPickler._
     val g = Unpickle[DirectedGraph[graph.Vertex]].fromBytes(byteBuffer)
@@ -224,7 +224,7 @@ object Main extends JSApp {
 
     def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double]) = {
       <.div(s"$title: ", <.input(
-        ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config),
+        ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
         ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetConfig(lens.set(config)(e.target.value.toDouble))))
       ))
     }

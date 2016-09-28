@@ -10,7 +10,7 @@ import scala.xml.pull._
 import scala.xml._
 
 object Main extends App {
-  val publications = Global.faculties.par.flatMap { faculty =>
+  def parsePublications = Global.faculties.par.flatMap { faculty =>
     // println(s"parsing $faculty.xml... ")
     val xmlFile = s"data/$faculty.xml"
     if (new java.io.File(xmlFile).exists) {
@@ -58,12 +58,18 @@ object Main extends App {
     }
   }.seq
 
-  println("removing duplicates")
-  val distinctPubs = publications.map(p => p.recordId -> p).toMap.values.toSeq
-  println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
-  pickleIntoFile(distinctPubs, "data/fakall.boo")
-  pickleIntoFile(graph.filterByIkz(distinctPubs, "080025"), "data/fakall.ikz.080025.boo")
-  pickleIntoFile(graph.pubGraph(graph.filterByIkz(distinctPubs, "080025")), "data/fakall.ikz.080025.graph.boo")
+  // val publications = {
+  //   val pubs = parsePublications
+  //   println("removing duplicates")
+  //   val distinctPubs = pubs.map(p => p.recordId -> p).toMap.values.toSeq
+  //   println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
+  //   pickleIntoFile(distinctPubs, "data/fakall.boo")
+  // }
+  val publications = loadPubData
+  pickleIntoFile(graph.filterByIkz(publications, "080025"), "data/fakall.ikz.080025.boo")
+  pickleIntoFile(graph.pubGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.boo")
+  pickleIntoFile(graph.authorGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.author.boo")
+  pickleIntoFile(graph.pubGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.byauthor.boo")
 
   // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
   // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")

@@ -19,11 +19,11 @@ object GraphView extends D3ForceLayout[graph.Vertex, SimulationConfig] {
   override def chargeDistance(p: Props) = 300
   override def charge(p: Props, v: V) = {
     import p.graph._
-    -p.props.get.charge * log(degree(v) + 1)
+    -p.props.get.charge * degree(v)
   }
   override def linkDistance(p: Props, e: Edge[V]) = {
     import p.graph._
-    p.props.get.linkDistance * log((degree(e.in) max degree(e.out)) + 2)
+    p.props.get.linkDistance * sqrt(abs(degree(e.in) - degree(e.out)) + 1)
   }
   override def linkStrength(p: Props, e: Edge[V]): Double = p.props.get.linkStrength
   override def theta = 0.9
@@ -38,9 +38,9 @@ object GraphView extends D3ForceLayout[graph.Vertex, SimulationConfig] {
         d.v match {
           case _: graph.Publication => "#48D7FF"
           case _: graph.Author => "#FF8A8E"
-          // case _: Outlet => "#22E6AB"
-          // case _: Project => "#D720AF"
-          // case _: Keyword => "black"
+          case _: graph.Outlet => "#22E6AB"
+          case _: graph.Project => "#D720AF"
+          case _: graph.Keyword => "black"
         }
       })
       .on("mouseover", (d: D3Vertex) => AppCircuit.dispatch(HoverVertex(d.v)))
