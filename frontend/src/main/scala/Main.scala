@@ -22,6 +22,7 @@ import diode.react._
 import boopickle.Default._
 
 import pharg._
+import shapeless.{Lens, lens}
 
 import js.JSConverters._
 import scalajs.js.typedarray._
@@ -215,22 +216,35 @@ object Main extends JSApp {
   def renderFilters(proxy: ModelProxy[RootModel]) = {
     val model = proxy.value
     val filters = model.publicationVisualization.filters
+    val config = model.publicationVisualization.config
     val search = model.publicationVisualization.search
     def update(filters: (String) => Filters)(e: ReactEventI) = {
       proxy.dispatch(SetFilters(filters(e.target.value)))
     }
 
-    <.div(
-      <.div("Title:", <.input(
-        ^.`type` := "text", // ^.value := search.title,
-        // ^.onChange --> Callback.empty,
-        ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
-          if (e.charCode == 13)
-            proxy.dispatch(SetSearch(Search(title = e.target.value)))
-          else
-            Callback.empty
-        })
+    def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double]) = {
+      <.div(s"$title: ", <.input(
+        ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config),
+        ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetConfig(lens.set(config)(e.target.value.toDouble))))
       ))
+    }
+
+    <.div(
+      // <.div("Title: ", <.input(
+      //   ^.`type` := "text", // ^.value := search.title,
+      //   // ^.onChange --> Callback.empty,
+      //   ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
+      //     if (e.charCode == 13)
+      //       proxy.dispatch(SetSearch(Search(title = e.target.value)))
+      //     else
+      //       Callback.empty
+      //   })
+      // )),
+      configSlider("Charge", 0, 1000, 10, lens[SimulationConfig] >> 'charge),
+      configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
+      configSlider("LinkDistance", 0, 100, 1, lens[SimulationConfig] >> 'linkDistance),
+      configSlider("LinkStrength", 1, 20, 0.5, lens[SimulationConfig] >> 'linkStrength),
+      configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity)
     // filters.filters.map {
     //   case f: KeywordFilter =>
     //     <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
@@ -249,7 +263,7 @@ object Main extends JSApp {
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
       <.div(
-        proxy.wrap(m => m.publicationVisualization.graph)(g => GraphView(g.value, 500, 500, Some(GraphProps(200)))),
+        proxy.wrap(m => m.publicationVisualization)(v => GraphView(v.value.graph, 500, 500, Some(v.value.config))),
         <.div(
           ^.position := "absolute",
           ^.top := "30px",

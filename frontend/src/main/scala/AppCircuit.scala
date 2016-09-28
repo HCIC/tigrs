@@ -20,10 +20,20 @@ case class Search(title: String = "") {
   def isEmpty = title.isEmpty
 }
 
+case class SimulationConfig(
+  charge: Double = 70,
+  chargeDistance: Double = 300,
+  linkDistance: Double = 10,
+  linkStrength: Double = 3,
+  gravity: Double = 0.1
+
+)
+
 case class PublicationVisualization(
   search: Search = Search(),
   filters: Filters = Filters(),
-  graph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty
+  graph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty,
+  config: SimulationConfig = SimulationConfig()
 ) {
   // lazy val graph: Graph[PubVertex, DiEdge] = {
   //   import Database._
@@ -46,6 +56,7 @@ case object UnHoverVertex extends Action
 case class SetSearch(search: Search) extends Action
 case class SetFilters(filter: Filters) extends Action
 case class SetGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
+case class SetConfig(config: SimulationConfig) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = RootModel(PublicationVisualization(filters = Filters( // limit = LimitFilter(100)
@@ -68,6 +79,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       })
       case SetFilters(f) => updated(value.copy(filters = f))
       case SetGraph(g) => updated(value.copy(graph = g))
+      case SetConfig(c) => updated(value.copy(config = c))
     }
   }
   val previewHandler = new ActionHandler(zoomRW(_.hoveredVertex)((m, v) => m.copy(hoveredVertex = v))) {

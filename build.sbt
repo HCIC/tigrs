@@ -96,6 +96,7 @@ lazy val frontend = (project in file("frontend"))
       "me.chrons" %%% "diode-react" % "1.0.0" ::
       "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1.0-SNAPSHOT" ::
       "org.scala-lang.modules" %% "scala-async" % "0.9.5" ::
+      "com.chuusai" %%% "shapeless" % "2.3.2" ::
       Nil
     ),
 
