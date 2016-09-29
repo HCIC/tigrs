@@ -69,12 +69,18 @@ object Database {
     //   println(s"downloaded graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
     //   g
     // }
-    downloadData.map { pubs =>
+    val gen = downloadData.map { pubs =>
       println("generating graph...")
-      val g = graph.pubCliqueMergedGraphByAuthor(pubs)
+      // val pg = graph.authorCliqueGraphByPublication(pubs)
+      // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Author(p.id): graph.Vertex)
+      // val pg = graph.pubCliqueGraphByAuthor(pubs)
+      // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Publication(p.recordId): graph.Vertex)
+      val g = graph.pubCliqueMergedGraph(pubs, 0.5, 0.2)
       println(s"generated graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
       g
     }
+    gen.onFailure { case e => console.log("error generationg graph: ", e.asInstanceOf[js.Any]); throw e }
+    gen
   }
 
   def readStoredData: Future[Unit] = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture.map {
@@ -173,7 +179,6 @@ object Database {
   }
 
   def lookupAuthor(id: String): Future[Author] = {
-    println(s"looking up $id")
     val resultDataF = db.authors.where(":id").applyDynamic("equals")(id).first().asInstanceOf[js.Promise[Int8Array]].toFuture
     resultDataF.map { data =>
       import PublicationPickler._
@@ -187,6 +192,16 @@ object Database {
       resultData.map { data =>
         import PublicationPickler._
         Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
+      }
+    }
+  }
+
+  def lookupAuthors(ids: Iterable[String]): Future[Seq[Author]] = {
+    val resultDataF = db.authors.where(":id").anyOf(ids).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
+    resultDataF.map { resultData =>
+      resultData.map { data =>
+        import PublicationPickler._
+        Unpickle[Author].fromBytes(TypedArrayBuffer.wrap(data))
       }
     }
   }
@@ -358,10 +373,14 @@ object Main extends JSApp {
                   projects.headOption.map(_ => "Projects:"),
                   <.ul(projects.map(p => <.li(p.name)))
                 )
-              case pubs: Seq[Publication] =>
+              case PublicationSeq(ps) =>
                 <.div(
-                  <.div(pubs.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
-                  <.div(pubs.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)))
+                  <.div(ps.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
+                  <.div(ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)))
+                )
+              case AuthorSeq(as) =>
+                <.div(
+                  <.div(as.map(p => <.div(<.b(p.name))))
                 )
               case a: Author =>
                 <.div(

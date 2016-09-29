@@ -86,9 +86,10 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val previewHandler = new ActionHandler(zoomRW(_.hoveredVertex)((m, v) => m.copy(hoveredVertex = v))) {
     override def handle = {
       case HoverVertex(v) => effectOnly(Effect(v match {
-        case graph.PublicationSet(recordIds) => Database.lookupPublications(recordIds).map(ps => SetHoveredVertex(ps))
         case graph.Publication(recordId) => Database.lookupPublication(recordId).map(p => SetHoveredVertex(p))
+        case graph.PublicationSet(recordIds) => Database.lookupPublications(recordIds).map(ps => SetHoveredVertex(PublicationSeq(ps)))
         case graph.Author(id) => Database.lookupAuthor(id).map(p => SetHoveredVertex(p))
+        case graph.AuthorSet(ids) => Database.lookupAuthors(ids).map(as => SetHoveredVertex(AuthorSeq(as)))
         case other =>
           println(other)
           concurrent.Future { NoAction }

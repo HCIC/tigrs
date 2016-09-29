@@ -32,13 +32,19 @@ object GraphView extends D3ForceLayout[graph.Vertex, SimulationConfig] {
   override val vertexElement = "circle"
   override def styleVertices(p: Props, sel: VertexSelection) = {
     sel
-      .attr("r", (d: D3Vertex) => log(p.graph.degree(d.v) + 1) * p.props.get.radius)
+      .attr("r", (d: D3Vertex) => d.v match {
+        case _: graph.Author => log(p.graph.degree(d.v) + 1) * p.props.get.radius
+        case ps: graph.PublicationSet => sqrt(ps.ids.size) * p.props.get.radius
+        case as: graph.AuthorSet => sqrt(as.ids.size) * p.props.get.radius
+        case _ => p.props.get.radius
+      })
       // .style("opacity", "0.8")
       .style("fill", { (d: D3Vertex) =>
         d.v match {
           case _: graph.Publication => "#48D7FF"
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.Author => "#FF8A8E"
+          case _: graph.AuthorSet => "#FF8A8E"
           case _: graph.Outlet => "#22E6AB"
           case _: graph.Project => "#D720AF"
           case _: graph.Keyword => "black"
