@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 case class RootModel(
   publicationVisualization: PublicationVisualization,
-  hoveredVertex: Option[graph.Vertex] = None
+  hoveredVertex: Option[AnyRef] = None
 )
 
 case class Search(title: String = "") {
@@ -21,12 +21,12 @@ case class Search(title: String = "") {
 }
 
 case class SimulationConfig(
-  charge: Double = 70,
-  chargeDistance: Double = 300,
+  radius: Double = 1.5,
+  charge: Double = 50,
+  chargeDistance: Double = 130,
   linkDistance: Double = 10,
-  linkStrength: Double = 3,
-  gravity: Double = 0.1
-
+  linkStrength: Double = 2,
+  gravity: Double = 0.15
 )
 
 case class PublicationVisualization(
@@ -51,6 +51,7 @@ case class PublicationVisualization(
 }
 
 case class HoverVertex(v: graph.Vertex) extends Action
+case class SetHoveredVertex(v: AnyRef) extends Action
 case object UnHoverVertex extends Action
 // case object UpdateGraph extends Action
 case class SetSearch(search: Search) extends Action
@@ -84,7 +85,15 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   }
   val previewHandler = new ActionHandler(zoomRW(_.hoveredVertex)((m, v) => m.copy(hoveredVertex = v))) {
     override def handle = {
-      case HoverVertex(v) => updated(Some(v))
+      case HoverVertex(v) => effectOnly(Effect(v match {
+        case graph.PublicationSet(recordIds) => Database.lookupPublications(recordIds).map(ps => SetHoveredVertex(ps))
+        case graph.Publication(recordId) => Database.lookupPublication(recordId).map(p => SetHoveredVertex(p))
+        case graph.Author(id) => Database.lookupAuthor(id).map(p => SetHoveredVertex(p))
+        case other =>
+          println(other)
+          concurrent.Future { NoAction }
+      }))
+      case SetHoveredVertex(v) => updated(Some(v))
       case UnHoverVertex => updated(None)
     }
   }

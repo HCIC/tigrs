@@ -58,18 +58,20 @@ object Main extends App {
     }
   }.seq
 
-  // val publications = {
-  //   val pubs = parsePublications
-  //   println("removing duplicates")
-  //   val distinctPubs = pubs.map(p => p.recordId -> p).toMap.values.toSeq
-  //   println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
-  //   pickleIntoFile(distinctPubs, "data/fakall.boo")
-  // }
-  val publications = loadPubData
+  val publications = {
+    val pubs = parsePublications
+    println("removing duplicates")
+    val distinctPubs = pubs.map(p => p.recordId -> p).toMap.values.toSeq
+    println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
+    pickleIntoFile(distinctPubs, "data/fakall.boo")
+    distinctPubs
+  }
+  // val publications = loadPubData
   pickleIntoFile(graph.filterByIkz(publications, "080025"), "data/fakall.ikz.080025.boo")
   pickleIntoFile(graph.pubGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.boo")
   pickleIntoFile(graph.authorGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.author.boo")
-  pickleIntoFile(graph.pubGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.byauthor.boo")
+  pickleIntoFile(graph.pubCliqueGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquegraph.byauthor.boo")
+  pickleIntoFile(graph.pubCliqueMergedGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquemergedgraph.byauthor.boo")
 
   // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
   // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")

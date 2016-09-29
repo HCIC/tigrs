@@ -26,7 +26,8 @@ import shapeless.{Lens, lens}
 
 import js.JSConverters._
 import scalajs.js.typedarray._
-import concurrent.{Future, Promise}
+import concurrent.{Future, Promise, Await}
+import concurrent.duration.Duration
 import java.nio.ByteBuffer
 
 import org.scalajs.dom.idb.Database
@@ -49,7 +50,7 @@ object Database {
 
   @JSExport
   val db = js.Dynamic.newInstance(Dexie)("publications_database")
-  db.version(2).stores(js.Dynamic.literal("publications" -> "", "meta" -> ""))
+  db.version(2).stores(js.Dynamic.literal("publications" -> "", "authors" -> "", "meta" -> ""))
   db.open()
 
   def downloadData: Future[Seq[Publication]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080025.boo").map { byteBuffer =>
@@ -60,12 +61,20 @@ object Database {
     publications
   }
 
-  def downloadGraph: Future[DirectedGraph[graph.Vertex]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080025.graph.byauthor.boo").map { byteBuffer =>
-    println("downloading publication data...")
-    import PublicationPickler._
-    val g = Unpickle[DirectedGraph[graph.Vertex]].fromBytes(byteBuffer)
-    println(s"downloaded graph with ${g.vertices.size} vertices.")
-    g
+  def downloadGraph: Future[DirectedGraph[graph.Vertex]] = {
+    // Main.AjaxGetByteBuffer("data/fakall.ikz.080025.cliquegraph.byauthor.boo").map { byteBuffer =>
+    //   println("downloading publication data...")
+    //   import PublicationPickler._
+    //   val g = Unpickle[DirectedGraph[graph.Vertex]].fromBytes(byteBuffer)
+    //   println(s"downloaded graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
+    //   g
+    // }
+    downloadData.map { pubs =>
+      println("generating graph...")
+      val g = graph.pubCliqueMergedGraphByAuthor(pubs)
+      println(s"generated graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
+      g
+    }
   }
 
   def readStoredData: Future[Unit] = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture.map {
@@ -103,7 +112,7 @@ object Database {
     storing.map { _ => Unit }
   }
 
-  def storeData(publications: Seq[Publication]): Future[Unit] = {
+  def storePublications(publications: Seq[Publication]): Future[Unit] = {
     println("storing publications...")
 
     val items = publications.toJSArray.map { p =>
@@ -120,8 +129,26 @@ object Database {
     storing.map { _ => Unit }
   }
 
+  def storeAuthors(publications: Seq[Publication]): Future[Unit] = {
+    println("storing authors...")
+
+    val authors = publications.flatMap(_.authors).distinct
+    val items = authors.toJSArray.map { p =>
+      import PublicationPickler._
+      val data = Pickle.intoBytes(p)
+      data.typedArray().subarray(data.position, data.limit)
+    }.toJSArray
+
+    val keys = authors.map(_.id).toJSArray
+    val storing = db.authors.bulkPut(items, keys).asInstanceOf[js.Promise[js.Any]].toFuture
+
+    storing.onSuccess { case _ => console.log("successfully stored authors.") }
+    storing.onFailure { case e => console.log("error storing authors: ", e.asInstanceOf[js.Any]) }
+    storing.map { _ => Unit }
+  }
+
   val index: Future[js.Any] = async {
-    val ensureData = readStoredData.recoverWith { case _ => downloadData flatMap storeData }
+    val ensureData = readStoredData.recoverWith { case _ => (downloadData flatMap storePublications) zip (downloadData flatMap storeAuthors) }
     ensureData.onFailure { case e => console.log("data error: ", e.asInstanceOf[js.Any]) }
     val index = retrieveStoredIndex.recoverWith {
       case _ =>
@@ -137,6 +164,33 @@ object Database {
     i
   }
 
+  def lookupPublication(recordId: Int): Future[Publication] = {
+    val resultDataF = db.publications.where(":id").applyDynamic("equals")(recordId).first().asInstanceOf[js.Promise[Int8Array]].toFuture
+    resultDataF.map { data =>
+      import PublicationPickler._
+      Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
+    }
+  }
+
+  def lookupAuthor(id: String): Future[Author] = {
+    println(s"looking up $id")
+    val resultDataF = db.authors.where(":id").applyDynamic("equals")(id).first().asInstanceOf[js.Promise[Int8Array]].toFuture
+    resultDataF.map { data =>
+      import PublicationPickler._
+      Unpickle[Author].fromBytes(TypedArrayBuffer.wrap(data))
+    }
+  }
+
+  def lookupPublications(recordIds: Iterable[Int]): Future[Seq[Publication]] = {
+    val resultDataF = db.publications.where(":id").anyOf(recordIds).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
+    resultDataF.map { resultData =>
+      resultData.map { data =>
+        import PublicationPickler._
+        Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
+      }
+    }
+  }
+
   def search(search: Search): Future[Seq[Publication]] = {
     index.flatMap { index =>
       def obj = js.Dynamic.literal
@@ -147,17 +201,9 @@ object Database {
         expand = true,
         bool = "AND"
       )
-      console.log(obj.asInstanceOf[js.Any])
       val result = index.asInstanceOf[js.Dynamic].search(search.title, searchConfig).asInstanceOf[js.Array[js.Dynamic]]
       val keys = result.map((r: js.Dynamic) => r.ref.asInstanceOf[String].toInt)
-      val resultDataF = db.publications.where(":id").anyOf(keys).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
-      console.log(resultDataF.asInstanceOf[js.Any])
-      resultDataF.map { resultData =>
-        resultData.map { data =>
-          import PublicationPickler._
-          Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
-        }
-      }
+      lookupPublications(keys)
       // val resultMapF: Future[Map[String, Publication]] = resultDataF.map {
       //   _.map { data =>
       //     import PublicationPickler._
@@ -222,29 +268,16 @@ object Main extends JSApp {
       proxy.dispatch(SetFilters(filters(e.target.value)))
     }
 
-    def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double]) = {
-      <.div(s"$title: ", <.input(
-        ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
-        ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetConfig(lens.set(config)(e.target.value.toDouble))))
-      ))
-    }
-
-    <.div(
-      // <.div("Title: ", <.input(
-      //   ^.`type` := "text", // ^.value := search.title,
-      //   // ^.onChange --> Callback.empty,
-      //   ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
-      //     if (e.charCode == 13)
-      //       proxy.dispatch(SetSearch(Search(title = e.target.value)))
-      //     else
-      //       Callback.empty
-      //   })
-      // )),
-      configSlider("Charge", 0, 1000, 10, lens[SimulationConfig] >> 'charge),
-      configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
-      configSlider("LinkDistance", 0, 100, 1, lens[SimulationConfig] >> 'linkDistance),
-      configSlider("LinkStrength", 1, 20, 0.5, lens[SimulationConfig] >> 'linkStrength),
-      configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity)
+    <.div( // <.div("Title: ", <.input(
+    //   ^.`type` := "text", // ^.value := search.title,
+    //   // ^.onChange --> Callback.empty,
+    //   ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
+    //     if (e.charCode == 13)
+    //       proxy.dispatch(SetSearch(Search(title = e.target.value)))
+    //     else
+    //       Callback.empty
+    //   })
+    // )),
     // filters.filters.map {
     //   case f: KeywordFilter =>
     //     <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
@@ -260,6 +293,26 @@ object Main extends JSApp {
     )
   }
 
+  def renderSimulationConfig(proxy: ModelProxy[RootModel]) = {
+    val model = proxy.value
+    val config = model.publicationVisualization.config
+
+    def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double]) = {
+      <.div(s"$title: ", <.input(
+        ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
+        ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetConfig(lens.set(config)(e.target.value.toDouble))))
+      ))
+    }
+    <.div(
+      configSlider("Radius", 1, 20, 0.5, lens[SimulationConfig] >> 'radius),
+      configSlider("Charge", 0, 1000, 10, lens[SimulationConfig] >> 'charge),
+      configSlider("LinkDistance", 0, 100, 1, lens[SimulationConfig] >> 'linkDistance),
+      configSlider("LinkStrength", 1, 20, 0.5, lens[SimulationConfig] >> 'linkStrength),
+      configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
+      configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance)
+    )
+  }
+
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
       <.div(
@@ -272,62 +325,68 @@ object Main extends JSApp {
           ^.border := "1px solid #DDD",
           ^.padding := "10px",
           renderFilters(proxy),
+          renderSimulationConfig(proxy),
           <.div(
             ^.display := "flex",
-            ^.flex := "1 1 auto"
-          // proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+            ^.flex := "1 1 auto",
+            proxy.wrap(m => m.hoveredVertex)(vertexView(_))
           )
         )
       )
     }
     .build
 
-  // val vertexView = ReactComponentB[ModelProxy[Option[PubVertex]]]("PublicationView")
-  //   .render_P(proxy =>
-  //     <.div(
-  //       ^.width := "400px",
-  //       proxy.value match {
-  //         case Some(v) =>
-  //           v match {
-  //             case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-  //               <.div(
-  //                 <.h3(title),
-  //                 outlet.map(o => <.div(o.name)),
-  //                 <.ul(authors.map(a => <.li(a.name))),
-  //                 keywords.headOption.map(_ => "Keywords:"),
-  //                 <.ul(keywords.map(k => <.li(k.keyword))),
-  //                 <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
-  //                 uri.map(uri => <.a(^.href := uri, uri)),
-  //                 <.div(s"record: $recordId"),
-  //                 owner.map(_ => "Owner:"),
-  //                 owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
-  //                 projects.headOption.map(_ => "Projects:"),
-  //                 <.ul(projects.map(p => <.li(p.name)))
-  //               )
-  //             case a: Author =>
-  //               <.div(
-  //                 <.h3(a.name),
-  //                 a.id
-  //               )
-  //             case o: Outlet =>
-  //               <.div(
-  //                 <.h3(o.name)
-  //               )
-  //             case k: Keyword =>
-  //               <.div(
-  //                 <.h3(k.keyword)
-  //               )
-  //             case p: Project =>
-  //               <.div(
-  //                 <.h3(p.name),
-  //                 <.h2(p.id)
-  //               )
-  //           }
-  //         case None => ""
-
-  //       }
-  //     ))
-  //   .build
+  val vertexView = ReactComponentB[ModelProxy[Option[AnyRef]]]("PublicationView")
+    .render_P(proxy =>
+      <.div(
+        ^.width := "400px",
+        proxy.value match {
+          case Some(v) =>
+            v match {
+              case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
+                <.div(
+                  <.h3(title),
+                  outlet.map(o => <.div(o.name)),
+                  <.ul(authors.map(a => <.li(a.name))),
+                  keywords.headOption.map(_ => "Keywords:"),
+                  <.ul(keywords.map(k => <.li(k.keyword))),
+                  <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
+                  uri.map(uri => <.a(^.href := uri, uri)),
+                  <.div(s"record: $recordId"),
+                  owner.map(_ => "Owner:"),
+                  owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
+                  projects.headOption.map(_ => "Projects:"),
+                  <.ul(projects.map(p => <.li(p.name)))
+                )
+              case pubs: Seq[Publication] =>
+                <.div(
+                  <.div(pubs.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
+                  <.div(pubs.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)))
+                )
+              case a: Author =>
+                <.div(
+                  <.h3(a.name),
+                  a.id
+                )
+              case o: Outlet =>
+                <.div(
+                  <.h3(o.name)
+                )
+              case k: Keyword =>
+                <.div(
+                  <.h3(k.keyword)
+                )
+              case p: Project =>
+                <.div(
+                  <.h3(p.name),
+                  <.h2(p.id)
+                )
+              case other => other.toString
+            }
+          case None => ""
+        }
+      ))
+    .build
 
   def AjaxGetByteBuffer(url: String): Future[ByteBuffer] = {
     Ajax.get(

@@ -3,15 +3,56 @@ package tigrs
 import scala.xml._
 
 object ModsParser {
+  val numPattern = "\\d+".r
   def xmlToPublications(chunks: Iterator[Node], limit: Int = Integer.MAX_VALUE): Seq[Publication] = {
     val extractAuthor: PartialFunction[Node, (String, String, Int)] = {
+      // <name type="personal">
+      //   <namePart>Full Name</namePart>
+      //   <namePart type="termsOfAddress">0</namePart>
+      //   <nameIdentifier type="local">id</nameIdentifier>
+      // </name>
+      //
+      // <name type="personal">
+      //   <namePart>Full Name</namePart>
+      //   <namePart type="termsOfAddress">1</namePart>
+      //   <role>
+      //     <roleTerm type="text">Thesis advisor</roleTerm>
+      //   </role>
+      //   <nameIdentifier type="local"/>
+      // </name>
+      //
+      // <name type="personal">
+      //   <namePart>Full Name</namePart>
+      //   <namePart type="termsOfAddress">0</namePart>
+      //   <nameIdentifier type="local"/>
+      // </name>
+      //
+      // <name type="personal">
+      //   <namePart>Full Name</namePart>
+      //   <namePart type="termsOfAddress">0</namePart>
+      //   <role>
+      //     <roleTerm type="text">Editor</roleTerm>
+      //   </role>
+      //   <nameIdentifier type="local">id</nameIdentifier>
+      // </name>
+
+      //TODO: right now all Authors without nameIdentifier or "P:(DE-HGF)0" are skipped
+      // case name @ <name>{ _* }</name> if (name \ "@type").text == "personal" =>
+      //   name match {
       case name @ <name>{ _,
         <namePart>{ author }</namePart>, _,
         <namePart>{ termsOfAdress }</namePart>, _,
         role, _,
         <nameIdentifier>{ nameIdentifier }</nameIdentifier>, _
-        }</name> if (name \ "@type").text == "personal" =>
-        (author.text, nameIdentifier.text, termsOfAdress.text.toInt)
+        }</name> if (name \ "@type").text == "personal" && nameIdentifier.text != "P:(DE-HGF)0" =>
+        (author.text, nameIdentifier.text, numPattern.findFirstIn(termsOfAdress.text).get.toInt)
+      case name @ <name>{ _,
+        <namePart>{ author }</namePart>, _,
+        <namePart>{ termsOfAdress }</namePart>, _,
+        <nameIdentifier>{ nameIdentifier }</nameIdentifier>, _
+        }</name> if (name \ "@type").text == "personal" && nameIdentifier.text != "P:(DE-HGF)0" =>
+        (author.text, nameIdentifier.text, numPattern.findFirstIn(termsOfAdress.text).get.toInt)
+      // }
     }
 
     def extractKeywords: PartialFunction[Node, Seq[Keyword]] = {

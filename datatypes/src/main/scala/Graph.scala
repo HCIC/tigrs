@@ -6,6 +6,7 @@ package graph {
   sealed trait Vertex
   case class Author(id: String) extends Vertex
   case class Publication(id: Int) extends Vertex
+  case class PublicationSet(ids: Set[Int]) extends Vertex
   case class Keyword(keyword: String) extends Vertex
   case class Project(id: String) extends Vertex
   case class Outlet(name: String) extends Vertex
@@ -37,19 +38,41 @@ package object graph {
     val vertices = authors.values
 
     val edges: Seq[Edge[Vertex]] = publications.flatMap { p =>
+      println(p.authors)
       p.authors.combinations(2).map { case Seq(a, b) => Edge[Vertex](authors(a.id), authors(b.id)) }
     }
     DirectedGraph(vertices.toSet, edges.toSet)
   }
 
-  def pubGraphByAuthor(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
+  def pubCliqueGraphByAuthor(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
     val pubs = publications.map(p => Publication(p.recordId))
     val vertices = pubs
 
     val edges = publications.combinations(2).collect {
+      // case Seq(a, b) if (a.authors intersect b.authors).size.toDouble / (a.authors union b.authors).toSet.size > 0.3 =>
       case Seq(a, b) if (a.authors == b.authors) =>
         Edge[Vertex](Publication(a.recordId), Publication(b.recordId))
     }
+    DirectedGraph(vertices.toSet, edges.toSet)
+  }
+
+  def pubCliqueMergedGraphByAuthor(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
+    val pubMap = publications.map(p => p.recordId -> p).toMap
+    val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
+
+    val components: Set[Set[tigrs.Publication]] = {
+      val vertices = pubMap.values
+      val edges = publications.combinations(2).collect {
+        // case Seq(a, b) if (a.authors intersect b.authors).size.toDouble / (a.authors union b.authors).toSet.size > 0.4 =>
+        case Seq(a, b) if (a.authors == b.authors) =>
+          Edge(a, b)
+      }
+      DirectedGraph(vertices.toSet, edges.toSet).connectedComponents
+    }
+
+    val pubSets: Iterable[PublicationSet] = components.map(vs => PublicationSet(vs.map(_.recordId)))
+    val vertices: Iterable[Vertex] = pubSets ++ authors.values
+    val edges: Iterable[Edge[Vertex]] = pubSets.flatMap(p => pubMap(p.ids.head).authors.map(a => Edge[Vertex](p, Author(a.id))))
     DirectedGraph(vertices.toSet, edges.toSet)
   }
 }
