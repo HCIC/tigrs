@@ -138,7 +138,8 @@ object ModsParser {
         } catch {
           case e: Exception =>
             println(e.getMessage)
-            println("could not parse:", mods)
+            println("could not parse:")
+            println(mods)
             throw e
         }
     }.toVector

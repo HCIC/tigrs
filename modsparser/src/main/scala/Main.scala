@@ -35,7 +35,7 @@ object Main extends App {
               children += Text(t)
             }
             case EvElemEnd(_, t) => {
-              return new Elem(null, tag, attrs, xml.TopScope, children: _*)
+              return new Elem(null, tag, attrs, xml.TopScope, false, children: _*)
             }
             case _ =>
           }
@@ -58,46 +58,51 @@ object Main extends App {
     }
   }.seq
 
-  val publications = {
-    val pubs = parsePublications
-    println("removing duplicates")
-    val distinctPubs = pubs.map(p => p.recordId -> p).toMap.values.toSeq
-    println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
-    pickleIntoFile(distinctPubs, "data/fakall.boo")
-    distinctPubs
-  }
-  // val publications = loadPubData
+  // val publications = {
+  //   val pubs = parsePublications
+  //   println("removing duplicates")
+  //   val distinctPubs = pubs.map(p => p.recordId -> p).toMap.values.toSeq
+  //   println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
+  //   pickleIntoFile(distinctPubs, "data/fakall.boo")
+  //   distinctPubs
+  // }
+  val publications = loadPubData
   pickleIntoFile(graph.filterByIkz(publications, "080025"), "data/fakall.ikz.080025.boo")
-  pickleIntoFile(graph.pubGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.boo")
-  pickleIntoFile(graph.authorGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.author.boo")
-  pickleIntoFile(graph.pubCliqueGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquegraph.byauthor.boo")
-  pickleIntoFile(graph.pubCliqueMergedGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquemergedgraph.byauthor.boo")
+  // pickleIntoFile(graph.pubGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.boo")
+  // pickleIntoFile(graph.authorGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.author.boo")
+  // pickleIntoFile(graph.pubCliqueGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquegraph.byauthor.boo")
+  // pickleIntoFile(graph.pubCliqueMergedGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquemergedgraph.byauthor.boo")
+
+  // 11 (1.1) means no merging
+  val combinations = (for (pubThreshold <- 1 to 11; authorThreshold <- 1 to 11) yield { (pubThreshold / 10.0, authorThreshold / 10.0) }).toSeq
+  var done = 0
+  val max = combinations.size
+  println("filtering...")
+  val filtered = graph.filterByIkz(publications, "080025")
+  println("generating merged graphs...")
+  print(s"\rdone: 0/$max   ")
+  combinations.par.foreach {
+    case (pubThreshold, authorThreshold) =>
+      val g = graph.pubCliqueMergedGraph(filtered, pubThreshold, authorThreshold)
+      pickleIntoFile(g, f"data/fakall.ikz.080025.cliquemergedgraph_${pubThreshold}%.1f_${authorThreshold}%.1f${".boo"}")
+      done += 1
+      print(s"\rdone: $done/$max   ")
+  }
+  println()
 
   // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
   // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")
 
-  def pickleIntoFile(data: Seq[Publication], file: String) {
+  implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
+  import PublicationPickler._
+
+  def pickleIntoFile(data: Seq[Publication], file: String) { writeBufToFile(Pickle.intoBytes(data), file) }
+  def pickleIntoFile(data: pharg.DirectedGraph[tigrs.graph.Vertex], file: String) { writeBufToFile(Pickle.intoBytes(data), file) }
+
+  def writeBufToFile(buf: java.nio.ByteBuffer, file: String) {
     import java.io.File
     import java.io.FileOutputStream
     val channel = new FileOutputStream(new File(file), false).getChannel()
-
-    implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
-    import PublicationPickler._
-    val buf = Pickle.intoBytes(data)
-
-    channel.write(buf)
-    channel.close()
-  }
-
-  def pickleIntoFile(data: pharg.DirectedGraph[tigrs.graph.Vertex], file: String) {
-    import java.io.File
-    import java.io.FileOutputStream
-    val channel = new FileOutputStream(new File(file), false).getChannel()
-
-    implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
-    import PublicationPickler._
-    val buf = Pickle.intoBytes(data)
-
     channel.write(buf)
     channel.close()
   }

@@ -52,8 +52,7 @@ package object graph {
     val vertices = publications
 
     val edges = publications.combinations(2).collect {
-      case Seq(a, b) if (a.authors intersect b.authors).size.toDouble / (a.authors union b.authors).distinct.size > threshold =>
-        // case Seq(a, b) if (a.authors == b.authors) =>
+      case Seq(a, b) if (a.authors intersect b.authors).size.toDouble / (a.authors union b.authors).distinct.size >= threshold =>
         Edge[tigrs.Publication](a, b)
     }
     DirectedGraph(vertices.toSet, edges.toSet)
@@ -67,7 +66,7 @@ package object graph {
 
     val vertices = authors
     val edges = authors.combinations(2).collect {
-      case Seq(a, b) if (aToP(a.id) intersect aToP(b.id)).size.toDouble / (aToP(a.id) union aToP(b.id)).size > threshold =>
+      case Seq(a, b) if (aToP(a.id) intersect aToP(b.id)).size.toDouble / (aToP(a.id) union aToP(b.id)).size >= threshold =>
         Edge[graph.Author](a, b)
     }
     DirectedGraph(vertices.toSet, edges.toSet)

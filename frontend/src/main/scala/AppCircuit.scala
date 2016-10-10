@@ -21,12 +21,14 @@ case class Search(title: String = "") {
 }
 
 case class SimulationConfig(
-  radius: Double = 1.5,
-  charge: Double = 50,
-  chargeDistance: Double = 130,
-  linkDistance: Double = 10,
-  linkStrength: Double = 2,
-  gravity: Double = 0.15
+  radius: Double = 3,
+  charge: Double = 430,
+  chargeDistance: Double = 220,
+  linkDistance: Double = 5,
+  linkStrength: Double = 1,
+  gravity: Double = 0.15,
+  pubSimilarity: Double = 0.4,
+  authorSimilarity: Double = 0.3
 )
 
 case class PublicationVisualization(
@@ -57,6 +59,7 @@ case object UnHoverVertex extends Action
 case class SetSearch(search: Search) extends Action
 case class SetFilters(filter: Filters) extends Action
 case class SetGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
+case class DownloadGraph(url: String) extends Action
 case class SetConfig(config: SimulationConfig) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
@@ -80,6 +83,11 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       })
       case SetFilters(f) => updated(value.copy(filters = f))
       case SetGraph(g) => updated(value.copy(graph = g))
+      case DownloadGraph(url) => effectOnly(Effect {
+        Database.downloadGraph(url).map {
+          graph => (SetGraph(graph))
+        }
+      })
       case SetConfig(c) => updated(value.copy(config = c))
     }
   }

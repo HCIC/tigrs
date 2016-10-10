@@ -61,26 +61,26 @@ object Database {
     publications
   }
 
-  def downloadGraph: Future[DirectedGraph[graph.Vertex]] = {
-    // Main.AjaxGetByteBuffer("data/fakall.ikz.080025.cliquegraph.byauthor.boo").map { byteBuffer =>
-    //   println("downloading publication data...")
-    //   import PublicationPickler._
-    //   val g = Unpickle[DirectedGraph[graph.Vertex]].fromBytes(byteBuffer)
-    //   println(s"downloaded graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
-    //   g
-    // }
-    val gen = downloadData.map { pubs =>
-      println("generating graph...")
-      // val pg = graph.authorCliqueGraphByPublication(pubs)
-      // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Author(p.id): graph.Vertex)
-      // val pg = graph.pubCliqueGraphByAuthor(pubs)
-      // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Publication(p.recordId): graph.Vertex)
-      val g = graph.pubCliqueMergedGraph(pubs, 0.5, 0.2)
-      println(s"generated graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
+  def downloadGraph(name: String): Future[DirectedGraph[graph.Vertex]] = {
+    Main.AjaxGetByteBuffer(s"data/$name.boo").map { byteBuffer =>
+      println("downloading graph...")
+      import PublicationPickler._
+      val g = Unpickle[DirectedGraph[graph.Vertex]].fromBytes(byteBuffer)
+      println(s"downloaded graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
       g
     }
-    gen.onFailure { case e => console.log("error generationg graph: ", e.asInstanceOf[js.Any]); throw e }
-    gen
+    // val gen = downloadData.map { pubs =>
+    //   println("generating graph...")
+    //   // val pg = graph.authorCliqueGraphByPublication(pubs)
+    //   // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Author(p.id): graph.Vertex)
+    //   // val pg = graph.pubCliqueGraphByAuthor(pubs)
+    //   // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Publication(p.recordId): graph.Vertex)
+    //   val g = graph.pubCliqueMergedGraph(pubs, 0.5, 0.2)
+    //   println(s"generated graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
+    //   g
+    // }
+    // gen.onFailure { case e => console.log("error generationg graph: ", e.asInstanceOf[js.Any]); throw e }
+    // gen
   }
 
   def readStoredData: Future[Unit] = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture.map {
@@ -268,7 +268,7 @@ object Main extends JSApp {
   def main() {
     Database // init database
 
-    downloadGraph.onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
+    downloadGraph("fakall.ikz.080025.cliquemergedgraph_0.4_0.3").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
 
     val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
@@ -312,19 +312,31 @@ object Main extends JSApp {
     val model = proxy.value
     val config = model.publicationVisualization.config
 
-    def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double]) = {
+    def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double], additionalDispatch: Option[SimulationConfig => Action] = None) = {
       <.div(s"$title: ", <.input(
         ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
-        ^.onChange ==> ((e: ReactEventI) => proxy.dispatch(SetConfig(lens.set(config)(e.target.value.toDouble))))
+        ^.onChange ==> ((e: ReactEventI) => {
+          val newConfig = lens.set(config)(e.target.value.toDouble)
+          proxy.dispatch(SetConfig(newConfig)) >> {
+            additionalDispatch match {
+              case Some(f) => proxy.dispatch(f(newConfig))
+              case None => Callback.empty
+            }
+          }
+        })
       ))
     }
     <.div(
       configSlider("Radius", 1, 20, 0.5, lens[SimulationConfig] >> 'radius),
       configSlider("Charge", 0, 1000, 10, lens[SimulationConfig] >> 'charge),
       configSlider("LinkDistance", 0, 100, 1, lens[SimulationConfig] >> 'linkDistance),
-      configSlider("LinkStrength", 1, 20, 0.5, lens[SimulationConfig] >> 'linkStrength),
+      configSlider("LinkStrength", 1, 10, 0.5, lens[SimulationConfig] >> 'linkStrength),
       configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
-      configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance)
+      configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
+      configSlider("PubSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'pubSimilarity,
+        Some(c => DownloadGraph(f"fakall.ikz.080025.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f"))),
+      configSlider("AuthorSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'authorSimilarity,
+        Some(c => DownloadGraph(f"fakall.ikz.080025.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f")))
     )
   }
 
@@ -414,5 +426,4 @@ object Main extends JSApp {
       headers = Map("Content-Type" -> "application/octet-stream")
     ).map(xhr => TypedArrayBuffer.wrap(xhr.response.asInstanceOf[ArrayBuffer]))
   }
-
 }
