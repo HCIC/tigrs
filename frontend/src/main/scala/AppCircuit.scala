@@ -13,7 +13,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 case class RootModel(
   publicationVisualization: PublicationVisualization,
-  hoveredVertex: Option[AnyRef] = None
+  hoveredVertex: Option[graph.Vertex] = None,
+  preview: Option[AnyRef] = None
 )
 
 case class Search(title: String = "") {
@@ -53,7 +54,7 @@ case class PublicationVisualization(
 }
 
 case class HoverVertex(v: graph.Vertex) extends Action
-case class SetHoveredVertex(v: AnyRef) extends Action
+case class SetPreview(d: AnyRef) extends Action
 case object UnHoverVertex extends Action
 // case object UpdateGraph extends Action
 case class SetSearch(search: Search) extends Action
@@ -91,19 +92,22 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case SetConfig(c) => updated(value.copy(config = c))
     }
   }
-  val previewHandler = new ActionHandler(zoomRW(_.hoveredVertex)((m, v) => m.copy(hoveredVertex = v))) {
+  val previewHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
     override def handle = {
-      case HoverVertex(v) => effectOnly(Effect(v match {
-        case graph.Publication(recordId) => Database.lookupPublication(recordId).map(p => SetHoveredVertex(p))
-        case graph.PublicationSet(recordIds) => Database.lookupPublications(recordIds).map(ps => SetHoveredVertex(PublicationSeq(ps)))
-        case graph.Author(id) => Database.lookupAuthor(id).map(p => SetHoveredVertex(p))
-        case graph.AuthorSet(ids) => Database.lookupAuthors(ids).map(as => SetHoveredVertex(AuthorSeq(as)))
-        case other =>
-          println(other)
-          concurrent.Future { NoAction }
-      }))
-      case SetHoveredVertex(v) => updated(Some(v))
-      case UnHoverVertex => updated(None)
+      case HoverVertex(v) => updated(
+        value.copy(hoveredVertex = Some(v)),
+        Effect(v match {
+          case graph.Publication(recordId) => Database.lookupPublication(recordId).map(p => SetPreview(p))
+          case graph.PublicationSet(recordIds) => Database.lookupPublications(recordIds).map(ps => SetPreview(PublicationSeq(ps)))
+          case graph.Author(id) => Database.lookupAuthor(id).map(p => SetPreview(p))
+          case graph.AuthorSet(ids) => Database.lookupAuthors(ids).map(as => SetPreview(AuthorSeq(as)))
+          case other =>
+            println(other)
+            concurrent.Future { NoAction }
+        })
+      )
+      case SetPreview(v) => updated(value.copy(preview = Some(v)))
+      case UnHoverVertex => updated(value.copy(hoveredVertex = None, preview = None))
     }
   }
   val actionHandler = composeHandlers(publicaitonsHandler, previewHandler)

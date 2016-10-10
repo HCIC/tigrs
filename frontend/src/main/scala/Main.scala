@@ -154,7 +154,7 @@ object Database {
   }
 
   val index: Future[js.Any] = async {
-    val ensureData = readStoredData.recoverWith { case _ => (downloadData flatMap storePublications) zip (downloadData flatMap storeAuthors) }
+    val ensureData: Future[_] = readStoredData.recoverWith { case _ => (downloadData flatMap storePublications) zip (downloadData flatMap storeAuthors) }
     ensureData.onFailure { case e => console.log("data error: ", e.asInstanceOf[js.Any]) }
     val index = retrieveStoredIndex.recoverWith {
       case _ =>
@@ -343,7 +343,7 @@ object Main extends JSApp {
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
       <.div(
-        proxy.wrap(m => m.publicationVisualization)(v => GraphView(v.value.graph, 500, 500, Some(v.value.config))),
+        proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, 500, 500, Some(GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex)))),
         <.div(
           ^.position := "absolute",
           ^.top := "30px",
@@ -356,7 +356,7 @@ object Main extends JSApp {
           <.div(
             ^.display := "flex",
             ^.flex := "1 1 auto",
-            proxy.wrap(m => m.hoveredVertex)(vertexView(_))
+            proxy.wrap(m => m.preview)(vertexView(_))
           )
         )
       )
@@ -368,8 +368,8 @@ object Main extends JSApp {
       <.div(
         ^.width := "400px",
         proxy.value match {
-          case Some(v) =>
-            v match {
+          case Some(data) =>
+            data match {
               case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
                 <.div(
                   <.h3(title),
