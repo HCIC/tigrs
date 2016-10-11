@@ -14,6 +14,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 case class RootModel(
   publicationVisualization: PublicationVisualization,
   hoveredVertex: Option[graph.Vertex] = None,
+  highlightedVertices: Set[graph.Vertex] = Set.empty,
   preview: Option[AnyRef] = None
 )
 
@@ -28,8 +29,8 @@ case class SimulationConfig(
   linkDistance: Double = 5,
   linkStrength: Double = 1,
   gravity: Double = 0.15,
-  pubSimilarity: Double = 0.4,
-  authorSimilarity: Double = 0.3
+  pubSimilarity: Double = 1.0,
+  authorSimilarity: Double = 1.0
 )
 
 case class PublicationVisualization(
@@ -95,7 +96,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val previewHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
     override def handle = {
       case HoverVertex(v) => updated(
-        value.copy(hoveredVertex = Some(v)),
+        value.copy(hoveredVertex = Some(v), highlightedVertices = value.publicationVisualization.graph.neighbours(v)),
         Effect(v match {
           case graph.Publication(recordId) => Database.lookupPublication(recordId).map(p => SetPreview(p))
           case graph.PublicationSet(recordIds) => Database.lookupPublications(recordIds).map(ps => SetPreview(PublicationSeq(ps)))

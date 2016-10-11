@@ -9,7 +9,11 @@ import fdietze.scalajs.react.components.D3ForceLayout
 import org.singlespaced.d3js.Ops._
 import Math._
 
-case class GraphConfig(simConfig: SimulationConfig, hovered: Option[graph.Vertex])
+case class GraphConfig(
+  simConfig: SimulationConfig,
+  hovered: Option[graph.Vertex] = None,
+  highlightedVertices: Set[graph.Vertex] = Set.empty
+)
 
 object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
   type V = graph.Vertex
@@ -53,7 +57,7 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
       .attr("r", (d: D3Vertex) => d.v match {
         case _: graph.Author => log(p.graph.degree(d.v) + 1) * p.props.simConfig.radius
         case ps: graph.PublicationSet => sqrt(ps.ids.size) * p.props.simConfig.radius
-        case as: graph.AuthorSet => sqrt(as.ids.size) * p.props.simConfig.radius
+        case as: graph.AuthorSet => (sqrt(as.ids.size) + sqrt(p.graph.degree(as))) * p.props.simConfig.radius
         case _ => p.props.simConfig.radius
       })
       .on("mouseover", (d: D3Vertex) => AppCircuit.dispatch(HoverVertex(d.v)))
@@ -69,17 +73,17 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
           case _: graph.Keyword => "black"
         }
       })
-      .style("stroke", (d: D3Vertex) => { if (p.props.hovered.exists(_ == d.v)) "black" else "#8F8F8F" })
-      .style("opacity", (d: D3Vertex) => { if (p.props.hovered.isEmpty || p.props.hovered.exists(_ == d.v)) "1.0" else "0.2" })
+      .style("stroke", (d: D3Vertex) => { if (p.props.hovered.isEmpty) "#8F8F8F" else { if (p.props.hovered.get == d.v || p.props.highlightedVertices.contains(d.v)) "black" else "#8F8F8F" } })
+      .style("opacity", (d: D3Vertex) => { if (p.props.hovered.isEmpty || p.props.hovered.get == d.v || p.props.highlightedVertices.contains(d.v)) "1.0" else "0.3" }) // || p.graph.neighbours(d.v).contains(p.props.hovered.get)
 
     sel
   }
 
   override def styleEdges(p: Props, sel: EdgeSelection): EdgeSelection = {
     sel
-      .style("stroke", (d: D3Edge) => { if (p.props.hovered.exists(h => h == d.e.in || h == d.e.out)) "black" else "#8F8F8F" })
+      .style("stroke", (d: D3Edge) => { if (p.props.hovered.isEmpty) "#8F8F8F" else if (p.props.hovered.exists(h => h == d.e.in || h == d.e.out)) "black" else "#8F8F8F" })
       .style("stroke-width", 1)
-    // .style("opacity", "0.7")
+      .style("opacity", (d: D3Edge) => { if (p.props.hovered.isEmpty) "1.0" else if (p.props.hovered.exists(h => h == d.e.in || h == d.e.out)) "1.0" else "0.3" })
   }
 
   override def positionVertices(sel: VertexSelection): VertexSelection = {

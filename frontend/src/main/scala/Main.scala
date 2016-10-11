@@ -53,7 +53,7 @@ object Database {
   db.version(2).stores(js.Dynamic.literal("publications" -> "", "authors" -> "", "meta" -> ""))
   db.open()
 
-  def downloadData: Future[Seq[Publication]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080025.boo").map { byteBuffer =>
+  def downloadData: Future[Seq[Publication]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080013.boo").map { byteBuffer =>
     println("downloading publication data...")
     import PublicationPickler._
     val publications = Unpickle[Seq[Publication]].fromBytes(byteBuffer)
@@ -88,7 +88,7 @@ object Database {
     case _ => throw new NoSuchElementException
   }
 
-  def downloadIndex: Future[String] = Ajax.get("data/fakall.ikz.080025.index.json").map { xhr =>
+  def downloadIndex: Future[String] = Ajax.get("data/fakall.ikz.080013.index.json").map { xhr =>
     println("downloading index...")
     xhr.response.asInstanceOf[String]
   }
@@ -268,7 +268,7 @@ object Main extends JSApp {
   def main() {
     Database // init database
 
-    downloadGraph("fakall.ikz.080025.cliquemergedgraph_0.4_0.3").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
+    downloadGraph("fakall.ikz.080013.cliquemergedgraph_1.0_1.0").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
 
     val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
@@ -334,16 +334,18 @@ object Main extends JSApp {
       configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
       configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
       configSlider("PubSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'pubSimilarity,
-        Some(c => DownloadGraph(f"fakall.ikz.080025.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f"))),
+        Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f"))),
       configSlider("AuthorSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'authorSimilarity,
-        Some(c => DownloadGraph(f"fakall.ikz.080025.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f")))
+        Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f")))
     )
   }
 
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
       <.div(
-        proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, 500, 500, Some(GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex)))),
+        proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, 500, 500, Some(
+          GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex, v.value.highlightedVertices)
+        ))),
         <.div(
           ^.position := "absolute",
           ^.top := "30px",
