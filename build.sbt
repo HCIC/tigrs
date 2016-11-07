@@ -8,11 +8,11 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.8",
 
   // scalaxy (faster collection operations)
-  scalacOptions += "-Xplugin-require:scalaxy-streams",
-  scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
-  scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
-  autoCompilerPlugins := true,
-  addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
+  // scalacOptions += "-Xplugin-require:scalaxy-streams",
+  // scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
+  // scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
+  // autoCompilerPlugins := true,
+  // addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
 
   scalacOptions ++=
     "-encoding" :: "UTF-8" ::
@@ -82,6 +82,7 @@ lazy val indexer = (project in file("indexer"))
   .enablePlugins(ScalaJSPlugin)
   .dependsOn(datatypesJS)
 
+val reactVersion = "15.3.2"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
   .settings(workbenchSettings: _*)
@@ -91,10 +92,10 @@ lazy val frontend = (project in file("frontend"))
 
     libraryDependencies ++= (
       "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
-      "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1" ::
-      "me.chrons" %%% "diode-react" % "1.0.0" ::
+      "com.github.japgolly.scalajs-react" %%% "core" % "0.11.3" ::
+      "me.chrons" %%% "diode-react" % "1.1.0" ::
       "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1.0-SNAPSHOT" ::
-      "org.scala-lang.modules" %% "scala-async" % "0.9.5" ::
+      "org.scala-lang.modules" %% "scala-async" % "0.9.6" ::
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
       Nil
     ),
@@ -102,18 +103,18 @@ lazy val frontend = (project in file("frontend"))
     // React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
     jsDependencies ++= Seq(
 
-      "org.webjars.bower" % "react" % "15.3.1"
+      "org.webjars.bower" % "react" % reactVersion
         / "react-with-addons.js"
         minified "react-with-addons.min.js"
         commonJSName "react",
 
-      "org.webjars.bower" % "react" % "15.3.1"
+      "org.webjars.bower" % "react" % reactVersion
         / "react-dom.js"
         minified "react-dom.min.js"
         dependsOn "react-with-addons.js"
         commonJSName "ReactDOM",
 
-      "org.webjars.bower" % "react" % "15.3.1"
+      "org.webjars.bower" % "react" % reactVersion
         / "react-dom-server.js"
         minified "react-dom-server.min.js"
         dependsOn "react-dom.js"
