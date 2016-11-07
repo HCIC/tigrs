@@ -268,7 +268,7 @@ object Main extends JSApp {
   def main() {
     Database // init database
 
-    downloadGraph("fakall.ikz.080013.cliquemergedgraph_1.0_1.0").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
+    downloadGraph("fakall.ikz.080013.intersectionGraph").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
 
     val modelConnect = AppCircuit.connect(m => m)
     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))

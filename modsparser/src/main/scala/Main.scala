@@ -69,27 +69,27 @@ object Main extends App {
   val publications = loadPubData
   pickleIntoFile(graph.filterByIkz(publications, "080025"), "data/fakall.ikz.080025.boo")
   pickleIntoFile(graph.filterByIkz(publications, "080013"), "data/fakall.ikz.080013.boo")
-  // pickleIntoFile(graph.pubGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.boo")
+  pickleIntoFile(graph.intersectionGraph(graph.filterByIkz(publications, "080013")), "data/fakall.ikz.080013.intersectionGraph.boo")
   // pickleIntoFile(graph.authorGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.author.boo")
   // pickleIntoFile(graph.pubCliqueGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquegraph.byauthor.boo")
   // pickleIntoFile(graph.pubCliqueMergedGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquemergedgraph.byauthor.boo")
 
   // 11 (1.1) means no merging
-  val combinations = (for (pubThreshold <- 1 to 11; authorThreshold <- 1 to 11) yield { (pubThreshold / 10.0, authorThreshold / 10.0) }).toSeq
-  var done = 0
-  val max = combinations.size
-  println("filtering...")
-  val filtered = graph.filterByIkz(publications, "080013")
-  println("generating merged graphs...")
-  print(s"\rdone: 0/$max   ")
-  combinations.par.foreach {
-    case (pubThreshold, authorThreshold) =>
-      val g = graph.pubCliqueMergedGraph(filtered, pubThreshold, authorThreshold)
-      pickleIntoFile(g, f"data/fakall.ikz.080013.cliquemergedgraph_${pubThreshold}%.1f_${authorThreshold}%.1f${".boo"}")
-      done += 1
-      print(s"\rdone: $done/$max   ")
-  }
-  println()
+  // val combinations = (for (pubThreshold <- 1 to 11; authorThreshold <- 1 to 11) yield { (pubThreshold / 10.0, authorThreshold / 10.0) }).toSeq
+  // var done = 0
+  // val max = combinations.size
+  // println("filtering...")
+  // val filtered = graph.filterByIkz(publications, "080013")
+  // println("generating merged graphs...")
+  // print(s"\rdone: 0/$max   ")
+  // combinations.par.foreach {
+  //   case (pubThreshold, authorThreshold) =>
+  //     val g = graph.pubCliqueMergedGraph(filtered, pubThreshold, authorThreshold)
+  //     pickleIntoFile(g, f"data/fakall.ikz.080013.cliquemergedgraph_${pubThreshold}%.1f_${authorThreshold}%.1f${".boo"}")
+  //     done += 1
+  //     print(s"\rdone: $done/$max   ")
+  // }
+  // println()
 
   // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
   // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")

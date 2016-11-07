@@ -1,6 +1,9 @@
 package tigrs
 
 import pharg.{DirectedGraph, Edge}
+import collection.breakOut
+import collection.mutable
+import Math._
 
 case class PublicationSeq(ps: Seq[Publication])
 case class AuthorSeq(as: Seq[Author])
@@ -74,7 +77,7 @@ package object graph {
 
   def pubCliqueMergedGraph(publications: Seq[tigrs.Publication], pubThreshold: Double = 1.0, authorThreshold: Double = 1.0): DirectedGraph[Vertex] = {
     val pubMap: Map[Int, tigrs.Publication] = publications.map(p => p.recordId -> p).toMap
-    val authors: Map[String, graph.Author] = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
+    // val authors: Map[String, graph.Author] = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
 
     val pubComponents: Set[Set[tigrs.Publication]] = {
       pubCliqueGraphByAuthor(publications, pubThreshold).connectedComponents
@@ -93,5 +96,59 @@ package object graph {
       if (ps.ids.flatMap(id => pubMap(id).authors.map(_.id)) intersect as.ids).nonEmpty
     ) yield Edge(ps, as)
     DirectedGraph(vertices.toSet, edges.toSet)
+  }
+
+  def fullIntersectionGraph(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
+    val mergedCliques = pubCliqueMergedGraph(publications)
+    val authors: Seq[AuthorSet] = mergedCliques.vertices.collect { case a: AuthorSet => a }(breakOut[Set[Vertex], AuthorSet, List[AuthorSet]])
+    val sets: List[(AuthorSet, Set[PublicationSet])] = authors.map { a => a -> mergedCliques.neighbours(a).collect { case p: PublicationSet => p } }.toList
+    val zones: List[(AuthorSet, Set[PublicationSet])] = sets.combinations(2).collect {
+      case List((authorsA, pubsA), (authorsB, pubsB)) if pubsA exists pubsB =>
+        AuthorSet(authorsA.ids union authorsB.ids) -> (pubsA intersect pubsB)
+    }.toList
+    val vertices: Set[Vertex] = zones.map(_._1)(breakOut[List[(AuthorSet, Set[PublicationSet])], Vertex, Set[Vertex]])
+    val edges: Set[Edge[Vertex]] = zones.combinations(2).collect {
+      case List((authorsA, pubsA), (authorsB, pubsB)) if authorsA.ids exists authorsB.ids =>
+        Edge[Vertex](authorsA, authorsB)
+    }.toSet //(breakOut[List[(AuthorSet, PublicationSet)], Edge[AuthorSet], Set[Edge[AuthorSet]]])
+    DirectedGraph[Vertex](vertices, edges)
+  }
+
+  def intersectionGraph(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
+    // from
+    // An Heuristic for the Construction of Intersection Graphs
+    // Paolo Simonetto, David Auber
+
+    def full = fullIntersectionGraph(publications)
+    val vertices = full.vertices
+    val edgePool = mutable.HashSet.empty ++ full.edges
+    val edges = mutable.ArrayBuffer.empty[Edge[Vertex]]
+
+    def metric(e: Edge[Vertex]): Double = e match {
+      case Edge(a: AuthorSet, b: AuthorSet) =>
+        def c(a: AuthorSet, b: AuthorSet): Int = {
+          val g = DirectedGraph(vertices, edges.toSet)
+          if (g.reachable(a, b))
+            a.ids count b.ids
+          else
+            0
+        }
+        def u(a: AuthorSet, b: AuthorSet): Double = min(a.ids.size, b.ids.size) - (a.ids count b.ids)
+        def v(a: AuthorSet, b: AuthorSet): Double = max(a.ids.size, b.ids.size) - (a.ids count b.ids) - 1
+        val p1 = 0.05
+        val p2 = 0.01
+        c(a, b) - p1 * u(a, b) - p2 * v(a, b)
+    }
+
+    while (edgePool.nonEmpty) {
+      val best = edgePool maxBy metric
+      println(edgePool.size)
+
+      if (DirectedGraph(vertices, edges.toSet + best).isPlanar) edges += best
+
+      edgePool -= best
+    }
+
+    DirectedGraph(vertices, edges.toSet)
   }
 }
