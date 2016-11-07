@@ -30,8 +30,7 @@ lazy val commonSettings = Seq(
     Nil,
 
   // also watch on locally published libraries
-  watchSources <++=
-    (managedClasspath in Compile) map { cp => cp.files }
+  watchSources <++= (managedClasspath in Compile) map { cp => cp.files }
 )
 
 lazy val root = project.in(file("."))
