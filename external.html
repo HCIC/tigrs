@@ -1,0 +1,13 @@
+<html>
+    <body>
+        Hier sind die Publikationen: <br/>
+        <div id="publications" style="width:800px; height:400px; border: 1px solid #ddd"></div>
+        <script src="http://localhost:12345/frontend/target/scala-2.11/frontend-jsdeps.js"></script>
+        <script src="http://localhost:12345/frontend/target/scala-2.11/frontend-fastopt.js"></script>
+        <script>
+        tigrs.Visualization().render({
+            renderTarget: document.getElementById("publications")
+        })
+        </script>
+    </body>
+</html>

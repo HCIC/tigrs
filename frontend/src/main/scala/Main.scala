@@ -22,6 +22,7 @@ import diode.react._
 import boopickle.Default._
 
 import pharg._
+import vectory._
 import shapeless.{Lens, lens}
 
 import js.JSConverters._
@@ -262,6 +263,37 @@ object Database {
 
 import Database._
 
+@JSExport
+object Visualization {
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  @ScalaJSDefined
+  trait Config extends js.Object {
+    val renderTarget: dom.raw.Element
+  }
+
+  @JSExport
+  def render(conf: Config) {
+    // opt.renderTarget.innerHTML = "pubs"
+    downloadGraph("fakall.ikz.080013.cliquemergedgraph_1.0_1.0").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
+
+    val modelConnect = AppCircuit.connect(m => m)
+    ReactDOM.render(modelConnect { v =>
+      val targetRect = conf.renderTarget.getBoundingClientRect()
+      val targetDim = Vec2(targetRect.width, targetRect.height)
+      GraphView(
+        v.value.publicationVisualization.graph,
+        targetDim,
+        Some(GraphConfig(
+          v.value.publicationVisualization.config,
+          v.value.hoveredVertex,
+          v.value.highlightedVertices
+        ))
+      )
+    }, conf.renderTarget)
+  }
+}
+
 object Main extends JSApp {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -343,22 +375,30 @@ object Main extends JSApp {
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
       <.div(
-        proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, 500, 500, Some(
-          GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex, v.value.highlightedVertices)
-        ))),
+        ^.position := "absolute",
+        ^.top := "0",
+        ^.left := "0",
+        ^.width := "100%",
+        ^.height := "100%",
+        ^.zIndex := "-1",
         <.div(
-          ^.position := "absolute",
-          ^.top := "30px",
-          ^.left := "30px",
-          ^.background := "white",
-          ^.border := "1px solid #DDD",
-          ^.padding := "10px",
-          renderFilters(proxy),
-          renderSimulationConfig(proxy),
+          proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, Vec2(400, 400), Some(
+            GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex, v.value.highlightedVertices)
+          ))),
           <.div(
-            ^.display := "flex",
-            ^.flex := "1 1 auto",
-            proxy.wrap(m => m.preview)(vertexView(_))
+            ^.position := "absolute",
+            ^.top := "30px",
+            ^.left := "30px",
+            ^.background := "white",
+            ^.border := "1px solid #DDD",
+            ^.padding := "10px",
+            renderFilters(proxy),
+            renderSimulationConfig(proxy),
+            <.div(
+              ^.display := "flex",
+              ^.flex := "1 1 auto",
+              proxy.wrap(m => m.preview)(vertexView(_))
+            )
           )
         )
       )

@@ -1,6 +1,7 @@
 package tigrs
 
 import pharg._
+import vectory._
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -19,7 +20,7 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
   type V = graph.Vertex
   type G = DirectedGraph[V]
 
-  override def apply(graph: DirectedGraph[V], width: Double, height: Double, props: Option[GraphConfig]) = component(Props(graph, width, height, props))
+  override def apply(graph: DirectedGraph[V], dim: Vec2, props: Option[GraphConfig]) = component(Props(graph, dim, props))
 
   override val panAndZoom = true
   override def chargeDistance(p: Props) = p.props.simConfig.chargeDistance
@@ -92,34 +93,5 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
       .attr("cy", (d: D3Vertex) => d.y)
 
     sel
-  }
-
-  override def render(p: Props, s: State) = {
-    import p._
-    <.div(
-      ^.position := "absolute",
-      ^.top := "0",
-      ^.left := "0",
-      ^.width := "100%",
-      ^.height := "100%",
-      ^.zIndex := "-1",
-      <.div(
-        ^.ref := "container",
-        ^.width := "100%",
-        ^.height := "100%",
-        ^.position := "relative",
-        <.svg.svg(
-          ^.width := "100%",
-          ^.height := "100%",
-          ^.position := "absolute",
-          <.svg.g(
-            ^.ref := "edges"
-          ),
-          <.svg.g(
-            ^.ref := "vertices"
-          )
-        )
-      )
-    )
   }
 }
