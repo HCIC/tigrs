@@ -1,12 +1,10 @@
-import com.lihaoyi.workbench.Plugin._
-
 name := "tigrs"
 
 version := "0.1-SNAPSHOT"
 
-lazy val commonSettings = Seq(
-  scalaVersion := "2.11.8",
+scalaVersion in ThisBuild := "2.12.0"
 
+lazy val commonSettings = Seq(
   // scalaxy (faster collection operations)
   // scalacOptions += "-Xplugin-require:scalaxy-streams",
   // scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
@@ -46,7 +44,7 @@ lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes")
   .settings(
     libraryDependencies ++= (
       "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
-      "me.chrons" %%% "boopickle" % "1.2.4" ::
+      "me.chrons" %%% "boopickle" % "1.2.5" ::
       "com.github.fdietze" %%% "pharg" % "0.1.0-SNAPSHOT" ::
       Nil
     )
@@ -85,7 +83,6 @@ lazy val indexer = (project in file("indexer"))
 val reactVersion = "15.3.2"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
-  .settings(workbenchSettings: _*)
   .settings(
     persistLauncher := true,
     persistLauncher in Test := false,
@@ -129,13 +126,7 @@ lazy val frontend = (project in file("frontend"))
         / "dist/dexie.js"
         minified "dist/dexie.min.js"
         commonJSName "Dexie"
-    ),
-
-    // workbench (refresh browser on compile)
-    bootSnippet := "tigrs.Main().main();",
-    // updateBrowsers <<= updateBrowsers.triggeredBy(fastOptJS in Compile)
-    refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
-
+    )
   )
-  .enablePlugins(ScalaJSPlugin)
+  .enablePlugins(ScalaJSPlugin, WorkbenchPlugin)
   .dependsOn(datatypesJS)
