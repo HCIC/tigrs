@@ -1,11 +1,14 @@
 package tigrs
 
 import org.scalajs.dom
+import scala.scalajs.js
+import scala.scalajs.js.annotation._
 
 import diode._
 import diode.ActionResult.ModelUpdate
 import diode.react._
 import pharg._
+import vectory._
 
 import cats.Monoid
 
@@ -24,8 +27,8 @@ case class Search(title: String = "") {
 
 case class SimulationConfig(
   radius: Double = 3,
-  charge: Double = 430,
-  chargeDistance: Double = 220,
+  charge: Double = 550,
+  chargeDistance: Double = 999,
   linkDistance: Double = 5,
   linkStrength: Double = 1,
   gravity: Double = 0.15,
@@ -37,7 +40,9 @@ case class PublicationVisualization(
   search: Search = Search(),
   filters: Filters = Filters(),
   graph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty,
-  config: SimulationConfig = SimulationConfig()
+  dimensions: Vec2 = Vec2(100, 100),
+  config: SimulationConfig = SimulationConfig(),
+  sliderWidget: Boolean = false
 ) {
   // lazy val graph: Graph[PubVertex, DiEdge] = {
   //   import Database._
@@ -61,8 +66,10 @@ case object UnHoverVertex extends Action
 case class SetSearch(search: Search) extends Action
 case class SetFilters(filter: Filters) extends Action
 case class SetGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
+case class SetDimensions(dimensions: Vec2) extends Action
 case class DownloadGraph(url: String) extends Action
 case class SetConfig(config: SimulationConfig) extends Action
+case class ShowSliderWidget(show: Boolean) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = RootModel(PublicationVisualization(filters = Filters( // limit = LimitFilter(100)
@@ -85,12 +92,14 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       })
       case SetFilters(f) => updated(value.copy(filters = f))
       case SetGraph(g) => updated(value.copy(graph = g))
+      case SetDimensions(dim) => updated(value.copy(dimensions = dim))
       case DownloadGraph(url) => effectOnly(Effect {
         Database.downloadGraph(url).map {
           graph => (SetGraph(graph))
         }
       })
       case SetConfig(c) => updated(value.copy(config = c))
+      case ShowSliderWidget(show) => updated(value.copy(sliderWidget = show))
     }
   }
   val previewHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {

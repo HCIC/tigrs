@@ -268,30 +268,164 @@ object Visualization {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   @ScalaJSDefined
-  trait Config extends js.Object {
+  trait WidgetConfig extends js.Object {
     val renderTarget: dom.raw.Element
+    val ikz: String
+    val sliderWidget: js.UndefOr[Boolean]
   }
 
   @JSExport
-  def render(conf: Config) {
-    // opt.renderTarget.innerHTML = "pubs"
-    downloadGraph("fakall.ikz.080013.cliquemergedgraph_1.0_1.0").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
+  def render(conf: WidgetConfig) {
+    AppCircuit.dispatch(ShowSliderWidget(conf.sliderWidget.getOrElse(false)))
 
-    val modelConnect = AppCircuit.connect(m => m)
-    ReactDOM.render(modelConnect { v =>
+    downloadGraph(s"fakall.ikz.${conf.ikz}.cliquemergedgraph_1.0_1.0").onSuccess {
+      case graph =>
+        AppCircuit.dispatch(SetGraph(graph))
+        updateDimensions
+    }
+    window.addEventListener("resize", { e: Event => updateDimensions() })
+
+    def updateDimensions() {
       val targetRect = conf.renderTarget.getBoundingClientRect()
       val targetDim = Vec2(targetRect.width, targetRect.height)
-      GraphView(
-        v.value.publicationVisualization.graph,
-        targetDim,
-        Some(GraphConfig(
-          v.value.publicationVisualization.config,
-          v.value.hoveredVertex,
-          v.value.highlightedVertices
-        ))
-      )
-    }, conf.renderTarget)
+      AppCircuit.dispatch(SetDimensions(targetDim))
+    }
+
+    val modelConnect = AppCircuit.connect(m => m)
+    ReactDOM.render(modelConnect(widgetView(_)), conf.renderTarget)
   }
+
+  val widgetView = ReactComponentB[ModelProxy[RootModel]]("WidgetView")
+    .render_P { proxy =>
+      <.div(
+        ^.width := "100%",
+        ^.height := "100%",
+        GraphView(
+          proxy.value.publicationVisualization.graph,
+          proxy.value.publicationVisualization.dimensions,
+          Some(GraphConfig(
+            proxy.value.publicationVisualization.config,
+            proxy.value.hoveredVertex,
+            proxy.value.highlightedVertices
+          ))
+        ),
+        proxy.value.publicationVisualization.sliderWidget ?= configWidget(proxy),
+        proxy.wrap(m => m.preview)(p => preview(p))
+      )
+    }.build
+
+  val configWidget = ReactComponentB[ModelProxy[RootModel]]("configWidget")
+    .render_P { proxy =>
+      val model = proxy.value
+      val config = model.publicationVisualization.config
+
+      def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double], additionalDispatch: Option[SimulationConfig => Action] = None) = {
+        <.div(
+          ^.display := "flex",
+          ^.justifyContent := "space-between",
+          s"$title: ",
+          <.input(
+            ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
+            ^.onChange ==> ((e: ReactEventI) => {
+              val newConfig = lens.set(config)(e.target.value.toDouble)
+              proxy.dispatch(SetConfig(newConfig)) >> {
+                additionalDispatch match {
+                  case Some(f) => proxy.dispatch(f(newConfig))
+                  case None => Callback.empty
+                }
+              }
+            })
+          )
+        )
+      }
+      <.div(
+        ^.position := "absolute",
+        ^.top := "30px",
+        ^.left := "30px",
+        ^.background := "white",
+        ^.border := "1px solid #DDD",
+        ^.padding := "10px",
+        <.div(
+          ^.display := "flex",
+          ^.flex := "1 1 auto",
+          <.div(
+            configSlider("Radius", 1, 20, 0.5, lens[SimulationConfig] >> 'radius),
+            configSlider("Charge", 1, 1000, 10, lens[SimulationConfig] >> 'charge),
+            configSlider("LinkDistance", 1, 100, 1, lens[SimulationConfig] >> 'linkDistance),
+            configSlider("LinkStrength", 1, 10, 0.5, lens[SimulationConfig] >> 'linkStrength),
+            configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
+            configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
+            configSlider("PubSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'pubSimilarity,
+              Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f"))),
+            configSlider("AuthorSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'authorSimilarity,
+              Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f")))
+          )
+        )
+      )
+    }.build
+
+  val preview = ReactComponentB[ModelProxy[Option[AnyRef]]]("PublicationView")
+    .render_P(proxy =>
+      proxy.value match {
+        case Some(data) =>
+          <.div(
+            ^.position := "absolute",
+            ^.top := "30px",
+            ^.right := "30px",
+            ^.background := "white",
+            ^.border := "1px solid #DDD",
+            ^.padding := "10px",
+            ^.width := "400px",
+            data match {
+              case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
+                <.div(
+                  <.h3(title),
+                  outlet.map(o => <.div(o.name)),
+                  <.ul(authors.map(a => <.li(a.name))),
+                  keywords.headOption.map(_ => "Keywords:"),
+                  <.ul(keywords.map(k => <.li(k.keyword))),
+                  <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
+                  uri.map(uri => <.a(^.href := uri, uri)),
+                  <.div(s"record: $recordId"),
+                  owner.map(_ => "Owner:"),
+                  owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
+                  projects.headOption.map(_ => "Projects:"),
+                  <.ul(projects.map(p => <.li(p.name)))
+                )
+              case PublicationSeq(ps) =>
+                <.div(
+                  <.div(ps.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
+                  <.div(ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)))
+                )
+              case AuthorSeq(as) =>
+                <.div(
+                  <.div(as.map(p => <.div(<.b(p.name))))
+                )
+              case a: Author =>
+                <.div(
+                  <.h3(a.name),
+                  a.id
+                )
+              case o: Outlet =>
+                <.div(
+                  <.h3(o.name)
+                )
+              case k: Keyword =>
+                <.div(
+                  <.h3(k.keyword)
+                )
+              case p: Project =>
+                <.div(
+                  <.h3(p.name),
+                  <.h2(p.id)
+                )
+              case other => other.toString
+            }
+          )
+        case None => <.div()
+      })
+    .build
+
 }
 
 object Main extends JSApp {
@@ -340,38 +474,6 @@ object Main extends JSApp {
     )
   }
 
-  def renderSimulationConfig(proxy: ModelProxy[RootModel]) = {
-    val model = proxy.value
-    val config = model.publicationVisualization.config
-
-    def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double], additionalDispatch: Option[SimulationConfig => Action] = None) = {
-      <.div(s"$title: ", <.input(
-        ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
-        ^.onChange ==> ((e: ReactEventI) => {
-          val newConfig = lens.set(config)(e.target.value.toDouble)
-          proxy.dispatch(SetConfig(newConfig)) >> {
-            additionalDispatch match {
-              case Some(f) => proxy.dispatch(f(newConfig))
-              case None => Callback.empty
-            }
-          }
-        })
-      ))
-    }
-    <.div(
-      configSlider("Radius", 1, 20, 0.5, lens[SimulationConfig] >> 'radius),
-      configSlider("Charge", 0, 1000, 10, lens[SimulationConfig] >> 'charge),
-      configSlider("LinkDistance", 0, 100, 1, lens[SimulationConfig] >> 'linkDistance),
-      configSlider("LinkStrength", 1, 10, 0.5, lens[SimulationConfig] >> 'linkStrength),
-      configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
-      configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
-      configSlider("PubSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'pubSimilarity,
-        Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f"))),
-      configSlider("AuthorSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'authorSimilarity,
-        Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f")))
-    )
-  }
-
   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
     .render_P { proxy =>
       <.div(
@@ -384,81 +486,10 @@ object Main extends JSApp {
         <.div(
           proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, Vec2(400, 400), Some(
             GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex, v.value.highlightedVertices)
-          ))),
-          <.div(
-            ^.position := "absolute",
-            ^.top := "30px",
-            ^.left := "30px",
-            ^.background := "white",
-            ^.border := "1px solid #DDD",
-            ^.padding := "10px",
-            renderFilters(proxy),
-            renderSimulationConfig(proxy),
-            <.div(
-              ^.display := "flex",
-              ^.flex := "1 1 auto",
-              proxy.wrap(m => m.preview)(vertexView(_))
-            )
-          )
+          )))
         )
       )
     }
-    .build
-
-  val vertexView = ReactComponentB[ModelProxy[Option[AnyRef]]]("PublicationView")
-    .render_P(proxy =>
-      <.div(
-        ^.width := "400px",
-        proxy.value match {
-          case Some(data) =>
-            data match {
-              case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-                <.div(
-                  <.h3(title),
-                  outlet.map(o => <.div(o.name)),
-                  <.ul(authors.map(a => <.li(a.name))),
-                  keywords.headOption.map(_ => "Keywords:"),
-                  <.ul(keywords.map(k => <.li(k.keyword))),
-                  <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
-                  uri.map(uri => <.a(^.href := uri, uri)),
-                  <.div(s"record: $recordId"),
-                  owner.map(_ => "Owner:"),
-                  owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
-                  projects.headOption.map(_ => "Projects:"),
-                  <.ul(projects.map(p => <.li(p.name)))
-                )
-              case PublicationSeq(ps) =>
-                <.div(
-                  <.div(ps.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
-                  <.div(ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)))
-                )
-              case AuthorSeq(as) =>
-                <.div(
-                  <.div(as.map(p => <.div(<.b(p.name))))
-                )
-              case a: Author =>
-                <.div(
-                  <.h3(a.name),
-                  a.id
-                )
-              case o: Outlet =>
-                <.div(
-                  <.h3(o.name)
-                )
-              case k: Keyword =>
-                <.div(
-                  <.h3(k.keyword)
-                )
-              case p: Project =>
-                <.div(
-                  <.h3(p.name),
-                  <.h2(p.id)
-                )
-              case other => other.toString
-            }
-          case None => ""
-        }
-      ))
     .build
 
   def AjaxGetByteBuffer(url: String): Future[ByteBuffer] = {

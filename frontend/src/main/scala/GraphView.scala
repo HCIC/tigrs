@@ -52,9 +52,12 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
       (current.props.hovered != next.props.hovered)
   }
 
-  override val vertexElement = "circle"
+  override val vertexElement = "g"
   override def styleVertices(p: Props, sel: VertexSelection) = {
+    sel.selectAll("*").remove() //TODO: replace elements more efficiently
+
     sel
+      .append("circle")
       .attr("r", (d: D3Vertex) => d.v match {
         case _: graph.Author => log(p.graph.degree(d.v) + 1) * p.props.simConfig.radius
         case ps: graph.PublicationSet => sqrt(ps.ids.size) * p.props.simConfig.radius
@@ -78,6 +81,17 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
       .style("opacity", (d: D3Vertex) => { if (p.props.hovered.isEmpty || p.props.hovered.get == d.v || p.props.highlightedVertices.contains(d.v)) "1.0" else "0.3" }) // || p.graph.neighbours(d.v).contains(p.props.hovered.get)
 
     sel
+      .append("text")
+      .text((d: D3Vertex) => d.v match {
+        case p: graph.Publication => p.id.toString
+        case p: graph.PublicationSet => p.ids.mkString("\n")
+        case a: graph.Author => a.id.toString
+        case a: graph.AuthorSet => a.ids.mkString("\n")
+        case v => ""
+      })
+      .style("opacity", (d: D3Vertex) => { if (p.props.hovered.isEmpty || p.props.hovered.get == d.v || p.props.highlightedVertices.contains(d.v)) "1.0" else "0.0" }) // || p.graph.neighbours(d.v).contains(p.props.hovered.get)
+
+    sel
   }
 
   override def styleEdges(p: Props, sel: EdgeSelection): EdgeSelection = {
@@ -89,8 +103,10 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
 
   override def positionVertices(sel: VertexSelection): VertexSelection = {
     sel
-      .attr("cx", (d: D3Vertex) => d.x)
-      .attr("cy", (d: D3Vertex) => d.y)
+      // .attr("x", (d: D3Vertex) => d.x)
+      // .attr("y", (d: D3Vertex) => d.y)
+      .attr("transform", (d: D3Vertex) => s"translate(${d.x},${d.y})")
+    // .style("transform", (d: D3Vertex) => s"translate(${d.x}px,${d.y}px)")
 
     sel
   }
