@@ -92,7 +92,6 @@ lazy val frontend = (project in file("frontend"))
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.3" ::
       "me.chrons" %%% "diode-react" % "1.1.0" ::
       "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1.0-SNAPSHOT" ::
-      "org.scala-lang.modules" %% "scala-async" % "0.9.6" ::
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
       Nil
     ),
@@ -115,17 +114,7 @@ lazy val frontend = (project in file("frontend"))
         / "react-dom-server.js"
         minified "react-dom-server.min.js"
         dependsOn "react-dom.js"
-        commonJSName "ReactDOMServer",
-
-      "org.webjars.npm" % "elasticlunr" % "0.9.5"
-        / "release/elasticlunr.js"
-        minified "release/elasticlunr.min.js"
-        commonJSName "Elasticlunr",
-
-      "org.webjars.npm" % "dexie" % "1.4.1"
-        / "dist/dexie.js"
-        minified "dist/dexie.min.js"
-        commonJSName "Dexie"
+        commonJSName "ReactDOMServer"
     )
   )
   .enablePlugins(ScalaJSPlugin, WorkbenchPlugin)

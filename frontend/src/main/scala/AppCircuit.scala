@@ -13,6 +13,7 @@ import vectory._
 import cats.Monoid
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import concurrent.Future
 
 case class RootModel(
   publicationVisualization: PublicationVisualization,
@@ -44,26 +45,11 @@ case class PublicationVisualization(
   config: SimulationConfig = SimulationConfig(),
   sliderWidget: Boolean = false
 ) {
-  // lazy val graph: Graph[PubVertex, DiEdge] = {
-  //   import Database._
-  //   if (search.isEmpty) Graph.empty
-  //   else {
-  //     val publications = Database.search(search)
-  //     val filteredPublications = filters.applyPubFilters(publications)
-  //     println("constructing graph...")
-  //     val fullGraph = filteredPublications.toGraph
-  //     val filteredGraph = filters.applyGraphFilters(fullGraph)
-  //     println(s"displaying ${filteredGraph.nodes.size} vertices...")
-  //     filteredGraph
-  //   }
-  // }
 }
 
 case class HoverVertex(v: graph.Vertex) extends Action
 case class SetPreview(d: AnyRef) extends Action
 case object UnHoverVertex extends Action
-// case object UpdateGraph extends Action
-case class SetSearch(search: Search) extends Action
 case class SetFilters(filter: Filters) extends Action
 case class SetGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
 case class SetDimensions(dimensions: Vec2) extends Action
@@ -77,24 +63,11 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
 
   val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
     override def handle = {
-      case SetSearch(s) => updated(value.copy(search = s), {
-        val search = Database.search(s)
-        search.onFailure { case e => throw e }
-        Effect(search.map { publications =>
-          println(s"filtering ${publications.size} publications...")
-          val filteredPublications = value.filters.applyPubFilters(publications)
-          println(s"constructing graph from ${filteredPublications.size} publications...")
-          val fullGraph = graph.pubGraph(filteredPublications)
-          val filteredGraph = value.filters.applyGraphFilters(fullGraph)
-          println(s"displaying ${filteredGraph.vertices.size} vertices...")
-          SetGraph(filteredGraph)
-        })
-      })
       case SetFilters(f) => updated(value.copy(filters = f))
       case SetGraph(g) => updated(value.copy(graph = g))
       case SetDimensions(dim) => updated(value.copy(dimensions = dim))
       case DownloadGraph(url) => effectOnly(Effect {
-        Database.downloadGraph(url).map {
+        Data.downloadGraph(url).map {
           graph => (SetGraph(graph))
         }
       })
@@ -107,13 +80,13 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case HoverVertex(v) => updated(
         value.copy(hoveredVertex = Some(v), highlightedVertices = value.publicationVisualization.graph.neighbours(v)),
         Effect(v match {
-          case graph.Publication(recordId, _) => Database.lookupPublication(recordId).map(p => SetPreview(p))
-          case graph.PublicationSet(recordIds, _) => Database.lookupPublications(recordIds).map(ps => SetPreview(PublicationSeq(ps)))
-          case graph.Author(id,_) => Database.lookupAuthor(id).map(p => SetPreview(p))
-          case graph.AuthorSet(ids,_) => Database.lookupAuthors(ids).map(as => SetPreview(AuthorSeq(as)))
+          case p: graph.Publication => Future.successful { SetPreview(p) }
+          case p: graph.PublicationSet => Future.successful { SetPreview(p) }
+          case a: graph.Author => Future.successful { SetPreview(a) }
+          case a: graph.AuthorSet => Future.successful { SetPreview(a) }
           case other =>
             println(other)
-            concurrent.Future { NoAction }
+            Future.successful { NoAction }
         })
       )
       case SetPreview(v) => updated(value.copy(preview = Some(v)))

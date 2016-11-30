@@ -37,32 +37,11 @@ import org.scalajs.dom.raw.IDBVersionChangeEvent
 import scala.scalajs.js.typedarray.TypedArrayBufferOps._
 import scala.scalajs.js.typedarray._
 
-// import ExecutionContext.Implicits.global
-import scala.async.Async.{async, await}
-
 import dom.ext.Ajax
 
-@JSExport
-object Database {
-  import scala.concurrent.ExecutionContext.Implicits.global
-
-  val Dexie = js.Dynamic.global.Dexie
-  val elasticlunr = js.Dynamic.global.elasticlunr
-
-  @JSExport
-  val db = js.Dynamic.newInstance(Dexie)("publications_database")
-  db.version(2).stores(js.Dynamic.literal("publications" -> "", "authors" -> "", "meta" -> ""))
-  db.open()
-
-  def downloadData: Future[Seq[Publication]] = Main.AjaxGetByteBuffer("data/fakall.ikz.080013.boo").map { byteBuffer =>
-    println("downloading publication data...")
-    import PublicationPickler._
-    val publications = Unpickle[Seq[Publication]].fromBytes(byteBuffer)
-    println(s"downloaded ${publications.size} publications.")
-    publications
-  }
-
+object Data {
   def downloadGraph(name: String): Future[DirectedGraph[graph.Vertex]] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
     Main.AjaxGetByteBuffer(s"data/$name.boo").map { byteBuffer =>
       println("downloading graph...")
       import PublicationPickler._
@@ -70,198 +49,9 @@ object Database {
       println(s"downloaded graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
       g
     }
-    // val gen = downloadData.map { pubs =>
-    //   println("generating graph...")
-    //   // val pg = graph.authorCliqueGraphByPublication(pubs)
-    //   // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Author(p.id): graph.Vertex)
-    //   // val pg = graph.pubCliqueGraphByAuthor(pubs)
-    //   // val g = cats.Functor[DirectedGraph].map(pg)(p => graph.Publication(p.recordId): graph.Vertex)
-    //   val g = graph.pubCliqueMergedGraph(pubs, 0.5, 0.2)
-    //   println(s"generated graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
-    //   g
-    // }
-    // gen.onFailure { case e => console.log("error generationg graph: ", e.asInstanceOf[js.Any]); throw e }
-    // gen
   }
-
-  def readStoredData: Future[Unit] = db.publications.count().asInstanceOf[js.Promise[Int]].toFuture.map {
-    case x if x > 0 =>
-    case _ => throw new NoSuchElementException
-  }
-
-  def downloadIndex: Future[String] = Ajax.get("data/fakall.ikz.080013.index.json").map { xhr =>
-    println("downloading index...")
-    xhr.response.asInstanceOf[String]
-  }
-
-  def retrieveStoredIndex: Future[String] = {
-    println("retrieving stored index...")
-    val request = db.meta.get("searchindex").asInstanceOf[js.Promise[js.UndefOr[String]]].toFuture.map(_.toOption).map {
-      case Some(index) => index
-      case _ => throw new NoSuchElementException
-    }
-    request.onSuccess { case _ => console.log("successfully retrieved index.") }
-    // request.onFailure { case e => console.log("error retrieving index from storage: ", e.asInstanceOf[js.Any]) }
-    request
-  }
-
-  def loadIndex(_index: String): js.Dynamic = {
-    val index = JSON.parse(_index).asInstanceOf[js.Dynamic]
-    println("loading index...")
-    elasticlunr.Index.load(index)
-  }
-
-  def storeIndex(index: js.Any): Future[Unit] = {
-    println("storing index...")
-    val storing = db.meta.put(index, "searchindex").asInstanceOf[js.Promise[js.Any]].toFuture
-    storing.onSuccess { case _ => console.log("successfully stored index.") }
-    storing.onFailure { case e => console.log("error storing index: ", e.asInstanceOf[js.Any]) }
-    storing.map { _ => Unit }
-  }
-
-  def storePublications(publications: Seq[Publication]): Future[Unit] = {
-    println("storing publications...")
-
-    val items = publications.toJSArray.map { p =>
-      import PublicationPickler._
-      val data = Pickle.intoBytes(p)
-      data.typedArray().subarray(data.position, data.limit)
-    }.toJSArray
-
-    val keys = publications.map(_.recordId).toJSArray
-    val storing = db.publications.bulkPut(items, keys).asInstanceOf[js.Promise[js.Any]].toFuture
-
-    storing.onSuccess { case _ => console.log("successfully stored publications.") }
-    storing.onFailure { case e => console.log("error storing publications: ", e.asInstanceOf[js.Any]) }
-    storing.map { _ => Unit }
-  }
-
-  def storeAuthors(publications: Seq[Publication]): Future[Unit] = {
-    println("storing authors...")
-
-    val authors = publications.flatMap(_.authors).distinct
-    val items = authors.toJSArray.map { p =>
-      import PublicationPickler._
-      val data = Pickle.intoBytes(p)
-      data.typedArray().subarray(data.position, data.limit)
-    }.toJSArray
-
-    val keys = authors.map(_.id).toJSArray
-    val storing = db.authors.bulkPut(items, keys).asInstanceOf[js.Promise[js.Any]].toFuture
-
-    storing.onSuccess { case _ => console.log("successfully stored authors.") }
-    storing.onFailure { case e => console.log("error storing authors: ", e.asInstanceOf[js.Any]) }
-    storing.map { _ => Unit }
-  }
-
-  val index: Future[js.Any] = async {
-    val ensureData: Future[_] = readStoredData.recoverWith { case _ => (downloadData flatMap storePublications) zip (downloadData flatMap storeAuthors) }
-    ensureData.onFailure { case e => console.log("data error: ", e.asInstanceOf[js.Any]) }
-    val index = retrieveStoredIndex.recoverWith {
-      case _ =>
-        val downloaded = downloadIndex
-        downloaded onSuccess { case i => storeIndex(i) }
-        downloaded
-    } map (loadIndex _)
-
-    await(ensureData)
-    println("data ready.")
-    val i = await(index)
-    println("index ready.")
-    i
-  }
-
-  def lookupPublication(recordId: Int): Future[Publication] = {
-    val resultDataF = db.publications.where(":id").applyDynamic("equals")(recordId).first().asInstanceOf[js.Promise[Int8Array]].toFuture
-    resultDataF.map { data =>
-      import PublicationPickler._
-      Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
-    }
-  }
-
-  def lookupAuthor(id: String): Future[Author] = {
-    val resultDataF = db.authors.where(":id").applyDynamic("equals")(id).first().asInstanceOf[js.Promise[Int8Array]].toFuture
-    resultDataF.map { data =>
-      import PublicationPickler._
-      Unpickle[Author].fromBytes(TypedArrayBuffer.wrap(data))
-    }
-  }
-
-  def lookupPublications(recordIds: Iterable[Int]): Future[Seq[Publication]] = {
-    val resultDataF = db.publications.where(":id").anyOf(recordIds).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
-    resultDataF.map { resultData =>
-      resultData.map { data =>
-        import PublicationPickler._
-        Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
-      }
-    }
-  }
-
-  def lookupAuthors(ids: Iterable[String]): Future[Seq[Author]] = {
-    val resultDataF = db.authors.where(":id").anyOf(ids).toArray().asInstanceOf[js.Promise[js.Array[Int8Array]]].toFuture
-    resultDataF.map { resultData =>
-      resultData.map { data =>
-        import PublicationPickler._
-        Unpickle[Author].fromBytes(TypedArrayBuffer.wrap(data))
-      }
-    }
-  }
-
-  def search(search: Search): Future[Seq[Publication]] = {
-    index.flatMap { index =>
-      def obj = js.Dynamic.literal
-      val searchConfig = obj(
-        fields = obj(
-          title = obj(boost = 1)
-        ),
-        expand = true,
-        bool = "AND"
-      )
-      val result = index.asInstanceOf[js.Dynamic].search(search.title, searchConfig).asInstanceOf[js.Array[js.Dynamic]]
-      val keys = result.map((r: js.Dynamic) => r.ref.asInstanceOf[String].toInt)
-      lookupPublications(keys)
-      // val resultMapF: Future[Map[String, Publication]] = resultDataF.map {
-      //   _.map { data =>
-      //     import PublicationPickler._
-      //     val publication = Unpickle[Publication].fromBytes(TypedArrayBuffer.wrap(data))
-      //     publication.recordId -> publication
-      //   }.toMap
-      // }
-
-      // for (resultMap <- resultMapF) yield {
-      //   Publications(result.map { r => r.score -> resultMap(r.ref.asInstanceOf[String]) })
-      // }
-    }
-  }
-
-  // def toJSObject(o: AnyRef): js.Object = {
-  //   o match {
-  //     case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-  //       js.Dynamic.literal(
-  //         title = title,
-  //         authors = toJSObject(authors),
-  //         keywords = toJSObject(keywords),
-  //         outlet = outlet.map(toJSObject).orUndefined,
-  //         origin = toJSObject(origin),
-  //         uri = uri.map(toJSObject).orUndefined,
-  //         recordId = recordId,
-  //         owner = owner.map(toJSObject).orUndefined,
-  //         projects = toJSObject(projects)
-  //       )
-  //     case Institute(ikz) => js.Dynamic.literal(ikz = ikz)
-  //     case Project(id, name) => js.Dynamic.literal(id = id, name = name)
-  //     case Keyword(keyword) => js.Dynamic.literal(keyword = keyword)
-  //     case Origin(date, publisher) => js.Dynamic.literal(date = date, publisher = publisher.orUndefined)
-  //     case Author(id, name) => js.Dynamic.literal(id = id, name = name)
-  //     case Conference(name) => js.Dynamic.literal(name = name)
-  //     case Journal(name) => js.Dynamic.literal(name = name)
-  //     case Series(name) => js.Dynamic.literal(name = name)
-  //     case xs: Seq[_] => xs.toJSArray
-  //   }
-  // }
 }
-
-import Database._
+import Data._
 
 @JSExport
 object Visualization {
@@ -432,7 +222,6 @@ object Main extends JSApp {
 
   import scala.concurrent.ExecutionContext.Implicits.global
   def main() {
-    Database // init database
 
     downloadGraph("fakall.ikz.080013.cliquemergedgraph_1.0_1.0").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
 
