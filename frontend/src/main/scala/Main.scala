@@ -209,6 +209,11 @@ object Visualization {
                   <.h3(p.name),
                   <.h2(p.id)
                 )
+              case graph.PublicationSet(_, ps) =>
+                <.div(
+                  <.div(ps.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
+                  <.div(ps.flatMap(p => p.authors).toSeq.sortBy(_.name).map(a => <.div(a.name)))
+                )
               case other => other.toString
             }
           )

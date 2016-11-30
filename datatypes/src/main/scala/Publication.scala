@@ -18,14 +18,30 @@ final case class Publication(
   owner: Option[Institute],
   projects: Seq[Project]
 ) {
-  // override def hashCode = recordId.hashCode
+  def canEqual(a: Any) = a.isInstanceOf[Publication]
+
+  override def equals(that: Any): Boolean =
+    that match {
+      case that: Publication => that.canEqual(this) && this.recordId == that.recordId
+      case _ => false
+    }
+
+  override def hashCode = recordId.hashCode
 }
 
 final case class Origin(date: String, publisher: Option[String])
 
 //TODO: role
 final case class Author(id: String, name: String) {
-  // override def hashCode = id.hashCode
+  def canEqual(a: Any) = a.isInstanceOf[Author]
+
+  override def equals(that: Any): Boolean =
+    that match {
+      case that: Author => that.canEqual(this) && this.id == that.id
+      case _ => false
+    }
+
+  override def hashCode = id.hashCode
 }
 
 sealed trait Outlet {

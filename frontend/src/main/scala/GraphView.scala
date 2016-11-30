@@ -89,10 +89,10 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
       .append("text")
       .text((d: D3Vertex) => {
         d.v match {
-          case p: graph.Publication if ((hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => p.title.toString
-          case p: graph.PublicationSet if ((hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => p.titles.mkString(" / ")
-          case a: graph.Author if (degree(d.v) >= 5 || (hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => a.name.toString
-          case a: graph.AuthorSet if (degree(d.v) >= 5 || (hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => a.names.mkString(" / ")
+          case p: graph.Publication if ((hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => p.p.title.toString
+          case p: graph.PublicationSet if ((hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => p.ps.map(p => p.title.take(25) + "...").mkString(" / ")
+          case a: graph.Author if (degree(d.v) >= 5 || (hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => a.a.name.toString
+          case a: graph.AuthorSet if (degree(d.v) >= 5 || (hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => a.as.map(_.name).mkString(" / ")
           case _ => ""
         }
       })

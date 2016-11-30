@@ -35,6 +35,19 @@ object ModsParser {
       //   </role>
       //   <nameIdentifier type="local">id</nameIdentifier>
       // </name>
+      //
+      // fak07.xml-  <titleInfo>
+      // fak07.xml:    <title>Smart Home Medical Technologies: Users’ Requirements for Conditional Acceptance</title>
+      // fak07.xml-  </titleInfo>
+      // fak07.xml-  <name type="personal">
+      // fak07.xml-    <namePart>Himmel, Simon</namePart>
+      // fak07.xml-    <namePart type="termsOfAddress">0</namePart>
+      // fak07.xml-    <affiliation>rwth</affiliation>
+      // fak07.xml-    <role>
+      // fak07.xml-      <roleTerm type="text">Corresponding author</roleTerm>
+      // fak07.xml-    </role>
+      // fak07.xml-    <nameIdentifier type="local">P:(DE-82)IDM00576</nameIdentifier>
+      // fak07.xml-  </name>
 
       //TODO: right now all Authors without nameIdentifier or "P:(DE-HGF)0" are skipped
       // case name @ <name>{ _* }</name> if (name \ "@type").text == "personal" =>

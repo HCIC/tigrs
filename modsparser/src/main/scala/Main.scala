@@ -74,12 +74,12 @@ object Main extends App {
   // pickleIntoFile(graph.pubCliqueGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquegraph.byauthor.boo")
   // pickleIntoFile(graph.pubCliqueMergedGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquemergedgraph.byauthor.boo")
 
-  // 11 (1.1) means no merging
+  // 11(1.1) means no merging
   val combinations = (for (pubThreshold <- 1 to 11; authorThreshold <- 1 to 11) yield { (pubThreshold / 10.0, authorThreshold / 10.0) }).toSeq
   var done = 0
   val max = combinations.size
   println("filtering...")
-  val filtered = graph.filterByIkz(publications, "080013")
+  val filtered = graph.filterByIkz(publications, "080025")
   println("generating merged graphs...")
   print(s"\rdone: 0/$max   ")
   combinations.par.foreach {
