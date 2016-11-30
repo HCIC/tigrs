@@ -7,10 +7,10 @@ case class AuthorSeq(as: Seq[Author])
 
 package graph {
   sealed trait Vertex
-  case class Author(id: String) extends Vertex
-  case class Publication(id: Int) extends Vertex
-  case class PublicationSet(ids: Set[Int]) extends Vertex
-  case class AuthorSet(ids: Set[String]) extends Vertex
+  case class Author(id: String, name:String) extends Vertex
+  case class Publication(id: Int, title:String) extends Vertex
+  case class PublicationSet(ids: Set[Int], titles:Set[String]) extends Vertex
+  case class AuthorSet(ids: Set[String], names:Set[String]) extends Vertex
   case class Keyword(keyword: String) extends Vertex
   case class Project(id: String) extends Vertex
   case class Outlet(name: String) extends Vertex
@@ -20,8 +20,8 @@ package object graph {
   def filterByIkz(publications: Seq[tigrs.Publication], ikz: String): Seq[tigrs.Publication] = publications.filter(_.owner.map(_.ikz).toSeq.flatten contains ikz)
 
   def pubGraph(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
-    val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
-    val pubs = publications.map(p => Publication(p.recordId))
+    val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id, a.name)).toMap
+    val pubs = publications.map(p => Publication(p.recordId, p.title))
     val outlets = publications.flatMap(_.outlet.map(o => Outlet(o.name))).distinct
     val projects = publications.flatMap(_.projects.map(p => Project(p.id))).distinct
     val keywords = publications.flatMap(_.keywords.map(k => Keyword(k.keyword))).distinct
@@ -29,16 +29,16 @@ package object graph {
     val vertices = authors.values ++ pubs ++ outlets ++ projects ++ keywords
 
     val edges: Seq[Edge[Vertex]] = publications.flatMap { p =>
-      p.authors.map(a => Edge[Vertex](authors(a.id), Publication(p.recordId))) ++
-        p.outlet.map(o => Edge[Vertex](Outlet(o.name), Publication(p.recordId))) ++
-        p.projects.map(pr => Edge[Vertex](Project(pr.id), Publication(p.recordId))) ++
-        p.keywords.map(k => Edge[Vertex](Keyword(k.keyword), Publication(p.recordId)))
+      p.authors.map(a => Edge[Vertex](authors(a.id), Publication(p.recordId, p.title))) ++
+        p.outlet.map(o => Edge[Vertex](Outlet(o.name), Publication(p.recordId, p.title))) ++
+        p.projects.map(pr => Edge[Vertex](Project(pr.id), Publication(p.recordId, p.title))) ++
+        p.keywords.map(k => Edge[Vertex](Keyword(k.keyword), Publication(p.recordId, p.title)))
     }
     DirectedGraph(vertices.toSet, edges.toSet)
   }
 
   def authorGraph(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
-    val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
+    val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id, a.name)).toMap
     val vertices = authors.values
 
     val edges: Seq[Edge[Vertex]] = publications.flatMap { p =>
@@ -60,7 +60,7 @@ package object graph {
 
   def authorCliqueGraphByPublication(publications: Seq[tigrs.Publication], threshold: Double = 1.0): DirectedGraph[graph.Author] = {
 
-    val authors = publications.flatMap(_.authors.map(a => graph.Author(a.id))).distinct
+    val authors = publications.flatMap(_.authors.map(a => graph.Author(a.id, a.name))).distinct
     // authors to publications
     val aToP: Map[String, Set[Int]] = publications.flatMap(p => p.authors.map(a => a.id -> p.recordId)).groupBy(_._1).mapValues { v => v.map { case (_, p) => p }.toSet }
 
@@ -74,7 +74,7 @@ package object graph {
 
   def pubCliqueMergedGraph(publications: Seq[tigrs.Publication], pubThreshold: Double = 1.0, authorThreshold: Double = 1.0): DirectedGraph[Vertex] = {
     val pubMap: Map[Int, tigrs.Publication] = publications.map(p => p.recordId -> p).toMap
-    val authors: Map[String, graph.Author] = publications.flatMap(_.authors).map(a => a.id -> Author(a.id)).toMap
+    val authors: Map[String, graph.Author] = publications.flatMap(_.authors).map(a => a.id -> Author(a.id, a.name)).toMap
 
     val pubComponents: Set[Set[tigrs.Publication]] = {
       pubCliqueGraphByAuthor(publications, pubThreshold).connectedComponents
@@ -83,8 +83,8 @@ package object graph {
       authorCliqueGraphByPublication(publications, authorThreshold).connectedComponents
     }
 
-    val pubSets: Iterable[PublicationSet] = pubComponents.map(vs => PublicationSet(vs.map(_.recordId)))
-    val authorSets: Iterable[AuthorSet] = authorComponents.map(vs => AuthorSet(vs.map(_.id)))
+    val pubSets: Iterable[PublicationSet] = pubComponents.map(vs => PublicationSet(vs.map(_.recordId), vs.map(_.title)))
+    val authorSets: Iterable[AuthorSet] = authorComponents.map(vs => AuthorSet(vs.map(_.id), vs.map(_.name)))
 
     val vertices: Iterable[Vertex] = pubSets ++ authorSets
     val edges: Iterable[Edge[Vertex]] = for (

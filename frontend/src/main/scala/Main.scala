@@ -328,9 +328,9 @@ object Visualization {
             ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
             ^.onChange ==> ((e: ReactEventI) => {
               val newConfig = lens.set(config)(e.target.value.toDouble)
-              proxy.dispatch(SetConfig(newConfig)) >> {
+              proxy.dispatchCB(SetConfig(newConfig)) >> {
                 additionalDispatch match {
-                  case Some(f) => proxy.dispatch(f(newConfig))
+                  case Some(f) => proxy.dispatchCB(f(newConfig))
                   case None => Callback.empty
                 }
               }
@@ -446,7 +446,7 @@ object Main extends JSApp {
     val config = model.publicationVisualization.config
     val search = model.publicationVisualization.search
     def update(filters: (String) => Filters)(e: ReactEventI) = {
-      proxy.dispatch(SetFilters(filters(e.target.value)))
+      proxy.dispatchCB(SetFilters(filters(e.target.value)))
     }
 
     <.div( // <.div("Title: ", <.input(

@@ -54,15 +54,20 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
 
   override val vertexElement = "g"
   override def styleVertices(p: Props, sel: VertexSelection) = {
+    import p.graph._
+    import p.props.highlightedVertices
+    import p.props.hovered
+    import p.props.simConfig
+
     sel.selectAll("*").remove() //TODO: replace elements more efficiently
 
     sel
       .append("circle")
       .attr("r", (d: D3Vertex) => d.v match {
-        case _: graph.Author => log(p.graph.degree(d.v) + 1) * p.props.simConfig.radius
-        case ps: graph.PublicationSet => sqrt(ps.ids.size) * p.props.simConfig.radius
-        case as: graph.AuthorSet => (sqrt(as.ids.size) + sqrt(p.graph.degree(as))) * p.props.simConfig.radius
-        case _ => p.props.simConfig.radius
+        case _: graph.Author => log(p.graph.degree(d.v) + 1) * simConfig.radius
+        case ps: graph.PublicationSet => sqrt(ps.ids.size) * simConfig.radius
+        case as: graph.AuthorSet => (sqrt(as.ids.size) + sqrt(p.graph.degree(as))) * simConfig.radius
+        case _ => simConfig.radius
       })
       .on("mouseover", (d: D3Vertex) => AppCircuit.dispatch(HoverVertex(d.v)))
       .on("mouseout", (d: D3Vertex) => AppCircuit.dispatch(UnHoverVertex))
@@ -77,19 +82,21 @@ object GraphView extends D3ForceLayout[graph.Vertex, GraphConfig] {
           case _: graph.Keyword => "black"
         }
       })
-      .style("stroke", (d: D3Vertex) => { if (p.props.hovered.isEmpty) "#8F8F8F" else { if (p.props.hovered.get == d.v || p.props.highlightedVertices.contains(d.v)) "black" else "#8F8F8F" } })
-      .style("opacity", (d: D3Vertex) => { if (p.props.hovered.isEmpty || p.props.hovered.get == d.v || p.props.highlightedVertices.contains(d.v)) "1.0" else "0.3" }) // || p.graph.neighbours(d.v).contains(p.props.hovered.get)
+      .style("stroke", (d: D3Vertex) => { if (hovered.isEmpty) "#8F8F8F" else { if (hovered.get == d.v || highlightedVertices.contains(d.v)) "black" else "#8F8F8F" } })
+      .style("opacity", (d: D3Vertex) => { if (hovered.isEmpty || hovered.get == d.v || highlightedVertices.contains(d.v)) "1.0" else "0.3" }) // || p.graph.neighbours(d.v).contains(hovered.get)
 
     sel
       .append("text")
-      .text((d: D3Vertex) => d.v match {
-        case p: graph.Publication => p.id.toString
-        case p: graph.PublicationSet => p.ids.mkString("\n")
-        case a: graph.Author => a.id.toString
-        case a: graph.AuthorSet => a.ids.mkString("\n")
-        case v => ""
+      .text((d: D3Vertex) => {
+        d.v match {
+          case p: graph.Publication if ((hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => p.title.toString
+          case p: graph.PublicationSet if ((hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => p.titles.mkString(" / ")
+          case a: graph.Author if (degree(d.v) >= 5 || (hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => a.name.toString
+          case a: graph.AuthorSet if (degree(d.v) >= 5 || (hovered.isDefined && hovered.get == d.v) || highlightedVertices.contains(d.v)) => a.names.mkString(" / ")
+          case _ => ""
+        }
       })
-      .style("opacity", (d: D3Vertex) => { if (p.props.hovered.isEmpty || p.props.hovered.get == d.v || p.props.highlightedVertices.contains(d.v)) "1.0" else "0.0" }) // || p.graph.neighbours(d.v).contains(p.props.hovered.get)
+      .style("opacity", (d: D3Vertex) => { if (hovered.isEmpty || hovered.get == d.v || highlightedVertices.contains(d.v)) "1.0" else "0.0" }) // || p.graph.neighbours(d.v).contains(p.props.hovered.get)
 
     sel
   }

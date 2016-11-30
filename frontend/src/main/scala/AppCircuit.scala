@@ -107,10 +107,10 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case HoverVertex(v) => updated(
         value.copy(hoveredVertex = Some(v), highlightedVertices = value.publicationVisualization.graph.neighbours(v)),
         Effect(v match {
-          case graph.Publication(recordId) => Database.lookupPublication(recordId).map(p => SetPreview(p))
-          case graph.PublicationSet(recordIds) => Database.lookupPublications(recordIds).map(ps => SetPreview(PublicationSeq(ps)))
-          case graph.Author(id) => Database.lookupAuthor(id).map(p => SetPreview(p))
-          case graph.AuthorSet(ids) => Database.lookupAuthors(ids).map(as => SetPreview(AuthorSeq(as)))
+          case graph.Publication(recordId, _) => Database.lookupPublication(recordId).map(p => SetPreview(p))
+          case graph.PublicationSet(recordIds, _) => Database.lookupPublications(recordIds).map(ps => SetPreview(PublicationSeq(ps)))
+          case graph.Author(id,_) => Database.lookupAuthor(id).map(p => SetPreview(p))
+          case graph.AuthorSet(ids,_) => Database.lookupAuthors(ids).map(as => SetPreview(AuthorSeq(as)))
           case other =>
             println(other)
             concurrent.Future { NoAction }
