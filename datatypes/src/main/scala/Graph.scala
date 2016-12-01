@@ -79,63 +79,17 @@ package object graph {
     DirectedGraph(vertices.toSet, edges.toSet)
   }
 
-  def authorGraph(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
-    val authors = publications.flatMap(_.authors).map(a => a.id -> Author(a.id, a)).toMap
-    val vertices = authors.values
-
-    val edges: Seq[Edge[Vertex]] = publications.flatMap { p =>
-      println(p.authors)
-      p.authors.combinations(2).map { case Seq(a, b) => Edge[Vertex](authors(a.id), authors(b.id)) }
-    }
-    DirectedGraph(vertices.toSet, edges.toSet)
-  }
-
-  def pubCliqueGraphByAuthor(publications: Seq[tigrs.Publication], threshold: Double = 1.0): DirectedGraph[tigrs.Publication] = {
-    val vertices = publications
-
-    // val authorToPubSet: Map[tigrs.Author, Set[tigrs.Publication]] = publications.flatMap(p => p.authors.map(a => p -> a)).groupBy { case (p, a) => a }.mapValues { tuples => tuples.map { case (p, a) => p }(breakOut[Seq[(tigrs.Publication, tigrs.Author)], tigrs.Publication, Set[tigrs.Publication]]) }
-
-    val edges = publications.combinations(2).collect {
-      case Seq(a, b) if (a.authors intersect b.authors).size.toDouble / (a.authors union b.authors).distinct.size >= threshold =>
-        Edge[tigrs.Publication](a, b)
-    }
-    DirectedGraph(vertices.toSet, edges.toSet)
-  }
-
-  def authorCliqueGraphByPublication(publications: Seq[tigrs.Publication], threshold: Double = 1.0): DirectedGraph[graph.Author] = {
-
-    val authors = publications.flatMap(_.authors.map(a => graph.Author(a.id, a))).distinct
-    // authors to publications
-    val aToP: Map[String, Set[Int]] = publications.flatMap(p => p.authors.map(a => a.id -> p.recordId)).groupBy(_._1).mapValues { v => v.map { case (_, p) => p }.toSet }
-
-    val vertices = authors
-    val edges = authors.combinations(2).collect {
-      case Seq(a, b) if (aToP(a.id) intersect aToP(b.id)).size.toDouble / (aToP(a.id) union aToP(b.id)).size >= threshold =>
-        Edge[graph.Author](a, b)
-    }
-    DirectedGraph(vertices.toSet, edges.toSet)
-  }
-
   def pubCliqueMergedGraph(publications: Seq[tigrs.Publication], pubThreshold: Double = 1.0, authorThreshold: Double = 1.0): DirectedGraph[Vertex] = {
-    val pubMap: Map[Int, tigrs.Publication] = publications.map(p => p.recordId -> p).toMap
-    // val authors: Map[String, graph.Author] = publications.flatMap(_.authors).map(a => a.id -> Author(a.id, a)).toMap
+    val authors: Set[tigrs.Author] = publications.flatMap(_.authors)(breakOut)
+    val aToP: Map[tigrs.Author, Set[tigrs.Publication]] = publications.flatMap(p => p.authors.map(a => a -> p)).groupBy(_._1).mapValues { v => v.map { case (_, p) => p }(breakOut) }
 
-    val pubComponents: Set[Set[tigrs.Publication]] = {
-      pubCliqueGraphByAuthor(publications, pubThreshold).connectedComponents
-    }
-    val authorComponents: Set[Set[graph.Author]] = {
-      authorCliqueGraphByPublication(publications, authorThreshold).connectedComponents
-    }
+    val pubSets: Iterable[PublicationSet] = publications.groupBy(_.authors.toSet).values.map(ps => PublicationSet(ps.map(_.recordId)(breakOut), ps.toSet))
+    val authorSets: Iterable[AuthorSet] = authors.groupBy(aToP).values.map(as => AuthorSet(as.map(_.id)(breakOut), as.toSet))
 
-    val pubSets: Iterable[PublicationSet] = pubComponents.map(vs => PublicationSet(vs.map(_.recordId), vs))
-    val authorSets: Iterable[AuthorSet] = authorComponents.map(vs => AuthorSet(vs.map(_.id), vs.map(_.a)))
+    val aToAs: Map[tigrs.Author, AuthorSet] = authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut[Iterable[AuthorSet], (tigrs.Author, AuthorSet), Map[tigrs.Author, AuthorSet]])
 
-    val vertices: Iterable[Vertex] = pubSets ++ authorSets
-    val edges: Iterable[Edge[Vertex]] = for (
-      as <- authorSets;
-      ps <- pubSets;
-      if (ps.ids.flatMap(id => pubMap(id).authors.map(_.id)) intersect as.ids).nonEmpty
-    ) yield Edge(ps, as)
-    DirectedGraph(vertices.toSet, edges.toSet)
+    val vertices: Set[Vertex] = Set.empty ++ pubSets ++ authorSets
+    val edges: Set[Edge[Vertex]] = pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Set[tigrs.Publication], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut)
+    DirectedGraph(vertices, edges)
   }
 }
