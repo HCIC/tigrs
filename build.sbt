@@ -5,12 +5,6 @@ version := "0.1-SNAPSHOT"
 scalaVersion in ThisBuild := "2.12.0"
 
 lazy val commonSettings = Seq(
-  // scalaxy (faster collection operations)
-  // scalacOptions += "-Xplugin-require:scalaxy-streams",
-  // scalacOptions in Test ~= (_ filterNot (_ == "-Xplugin-require:scalaxy-streams")),
-  // scalacOptions in Test += "-Xplugin-disable:scalaxy-streams",
-  // autoCompilerPlugins := true,
-  // addCompilerPlugin("com.nativelibs4java" %% "scalaxy-streams" % "0.3.4"),
 
   scalacOptions ++=
     "-encoding" :: "UTF-8" ::
@@ -21,10 +15,6 @@ lazy val commonSettings = Seq(
     "-language:_" ::
     "-Xlint:_" ::
     "-Ywarn-unused" ::
-    // "-Xdisable-assertions" ::
-    // "-optimize" ::
-    // "-Yopt:_" :: // enables all 2.12 optimizations
-    // "-Yinline" :: "-Yinline-warnings" ::
     Nil,
 
   // also watch on locally published libraries
@@ -53,15 +43,19 @@ lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes")
 lazy val datatypesJS = datatypes.js
 lazy val datatypesJVM = datatypes.jvm
 
+val circeVersion = "0.6.1"
 lazy val modsParser = (project in file("modsparser"))
   .settings(commonSettings: _*)
   .settings(
-    libraryDependencies ++= (
+    libraryDependencies ++=
       "org.scala-lang.modules" %% "scala-xml" % "1.0.5" ::
-      "com.lihaoyi" %% "upickle" % "0.4.1" ::
+      "io.circe" %% "circe-core" % circeVersion ::
+      "io.circe" %% "circe-generic" % circeVersion ::
+      "io.circe" %% "circe-parser" % circeVersion ::
+      Nil,
+    scalacOptions ++=
+      "-opt:l:classpath" ::
       Nil
-    ),
-    scalacOptions += "-optimize"
   )
   .dependsOn(datatypesJVM)
 

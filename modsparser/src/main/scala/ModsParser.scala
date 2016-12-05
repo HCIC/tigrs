@@ -5,7 +5,7 @@ import scala.xml._
 object ModsParser {
   val numPattern = "\\d+".r
   def xmlToPublications(chunks: Iterator[Node], limit: Int = Integer.MAX_VALUE): Seq[Publication] = {
-    val extractAuthor: PartialFunction[Node, (String, String, Int)] = {
+    val extractAuthor: PartialFunction[Node, Author] = {
       // <name type="personal">
       //   <namePart>Full Name</namePart>
       //   <namePart type="termsOfAddress">0</namePart>
@@ -36,6 +36,7 @@ object ModsParser {
       //   <nameIdentifier type="local">id</nameIdentifier>
       // </name>
       //
+      //TODO: not extracted:
       // fak07.xml-  <titleInfo>
       // fak07.xml:    <title>Smart Home Medical Technologies: Users’ Requirements for Conditional Acceptance</title>
       // fak07.xml-  </titleInfo>
@@ -58,13 +59,13 @@ object ModsParser {
         role, _,
         <nameIdentifier>{ nameIdentifier }</nameIdentifier>, _
         }</name> if (name \ "@type").text == "personal" && nameIdentifier.text != "P:(DE-HGF)0" =>
-        (author.text, nameIdentifier.text, numPattern.findFirstIn(termsOfAdress.text).get.toInt)
+        Author(nameIdentifier.text, author.text, numPattern.findFirstIn(termsOfAdress.text).get.toInt)
       case name @ <name>{ _,
         <namePart>{ author }</namePart>, _,
         <namePart>{ termsOfAdress }</namePart>, _,
         <nameIdentifier>{ nameIdentifier }</nameIdentifier>, _
         }</name> if (name \ "@type").text == "personal" && nameIdentifier.text != "P:(DE-HGF)0" =>
-        (author.text, nameIdentifier.text, numPattern.findFirstIn(termsOfAdress.text).get.toInt)
+        Author(nameIdentifier.text, author.text, numPattern.findFirstIn(termsOfAdress.text).get.toInt)
       // }
     }
 
@@ -135,9 +136,7 @@ object ModsParser {
       case mods @ <mods>{ entries @ _* }</mods> if (mods \ "titleInfo" \ "title").nonEmpty =>
         try {
           val title = (mods \ "titleInfo" \ "title").text
-          val authors = entries.collect(extractAuthor).toList.sortBy {
-            case (_, id, termsOfAdress) => termsOfAdress
-          }.map { case (name, id, _) => Author(id, name) }
+          val authors = entries.collect(extractAuthor).toSet
 
           val keywords = entries.collectFirst(extractKeywords).getOrElse(Nil)
           val outlet = entries.collectFirst(extractConference orElse extractJournal orElse extractSeries)

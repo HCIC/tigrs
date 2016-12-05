@@ -9,7 +9,7 @@ final case class Keyword(keyword: String)
 @JSExportAll
 final case class Publication(
   title: String,
-  authors: Seq[Author],
+  authors: Set[Author],
   keywords: Seq[Keyword],
   outlet: Option[Outlet],
   origin: Origin,
@@ -32,7 +32,7 @@ final case class Publication(
 final case class Origin(date: String, publisher: Option[String])
 
 //TODO: role
-final case class Author(id: String, name: String) {
+final case class Author(id: String, name: String, termsOfAdress: Int) {
   def canEqual(a: Any) = a.isInstanceOf[Author]
 
   override def equals(that: Any): Boolean =

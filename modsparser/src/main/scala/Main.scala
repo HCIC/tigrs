@@ -67,8 +67,8 @@ object Main extends App {
   //   distinctPubs
   // }
   val publications = loadPubData
-  pickleIntoFile(graph.filterByIkz(publications, "080025"), "data/fakall.ikz.080025.boo")
-  pickleIntoFile(graph.filterByIkz(publications, "080013"), "data/fakall.ikz.080013.boo")
+  // pickleIntoFile(graph.filterByIkz(publications, "080025"), "data/fakall.ikz.080025.boo")
+  // pickleIntoFile(graph.filterByIkz(publications, "080013"), "data/fakall.ikz.080013.boo")
   // pickleIntoFile(graph.pubGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.boo")
   // pickleIntoFile(graph.authorGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.author.boo")
   // pickleIntoFile(graph.pubCliqueGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquegraph.byauthor.boo")
@@ -82,7 +82,7 @@ object Main extends App {
   val filtered = graph.filterByIkz(publications, "080025")
   println("generating merged graphs...")
   print(s"\rdone: 0/$max   ")
-  combinations.par.foreach {
+  combinations.foreach {
     case (pubThreshold, authorThreshold) =>
       val g = graph.pubCliqueMergedGraph(filtered, pubThreshold, authorThreshold)
       pickleIntoFile(g, f"data/fakall.ikz.080013.cliquemergedgraph_${pubThreshold}%.1f_${authorThreshold}%.1f${".boo"}")
@@ -94,7 +94,7 @@ object Main extends App {
   // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
   // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")
 
-  implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
+  // implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
   import PublicationPickler._
 
   def pickleIntoFile(data: Seq[Publication], file: String) { writeBufToFile(Pickle.intoBytes(data), file) }
@@ -119,7 +119,6 @@ object Main extends App {
     inChannel.read(buffer)
     buffer.flip()
 
-    implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
     import PublicationPickler._
     val pubs = Unpickle[Seq[Publication]].fromBytes(buffer)
 
@@ -130,10 +129,10 @@ object Main extends App {
   }
 
   def pickleIntoJsonFile(data: Seq[Publication], file: String) {
-    import upickle.default._
+    import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
     import java.io._
 
-    val json = write(data)
+    val json = data.asJson.spaces2
     Some(new PrintWriter(file)).foreach { p => p.write(json); p.close }
   }
 
