@@ -39,8 +39,9 @@ case class SimulationConfig(
 
 case class PublicationVisualization(
   search: Search = Search(),
-  filters: Filters = Filters(),
-  graph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty,
+  // filters: Filters = Filters(),
+  publications: Seq[Publication] = Nil,
+  displayGraph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty,
   dimensions: Vec2 = Vec2(100, 100),
   config: SimulationConfig = SimulationConfig(),
   sliderWidget: Boolean = false
@@ -50,25 +51,26 @@ case class PublicationVisualization(
 case class HoverVertex(v: graph.Vertex) extends Action
 case class SetPreview(d: AnyRef) extends Action
 case object UnHoverVertex extends Action
-case class SetFilters(filter: Filters) extends Action
-case class SetGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
+// case class SetFilters(filter: Filters) extends Action
+case class SetDisplayGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
 case class SetDimensions(dimensions: Vec2) extends Action
-case class DownloadGraph(url: String) extends Action
+case class DownloadPublications(url: String) extends Action
+case class SetPublications(ps: Seq[Publication]) extends Action
 case class SetConfig(config: SimulationConfig) extends Action
 case class ShowSliderWidget(show: Boolean) extends Action
 
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
-  def initialModel = RootModel(PublicationVisualization(filters = Filters( // limit = LimitFilter(100)
-  )))
+  def initialModel = RootModel(PublicationVisualization())
 
   val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
     override def handle = {
-      case SetFilters(f) => updated(value.copy(filters = f))
-      case SetGraph(g) => updated(value.copy(graph = g))
+      // case SetFilters(f) => updated(value.copy(filters = f))
+      case SetDisplayGraph(g) => updated(value.copy(displayGraph = g))
+      case SetPublications(ps) => updated(value.copy(publications = ps), Effect(Future { SetDisplayGraph(tigrs.graph.mergedGraph(value.config.pubSimilarity, value.config.authorSimilarity)(ps)) }))
       case SetDimensions(dim) => updated(value.copy(dimensions = dim))
-      case DownloadGraph(url) => effectOnly(Effect {
-        Data.downloadGraph(url).map {
-          graph => (SetGraph(graph))
+      case DownloadPublications(url) => effectOnly(Effect {
+        Data.downloadPublications(url).map {
+          graph => (SetPublications(graph))
         }
       })
       case SetConfig(c) => updated(value.copy(config = c))
@@ -78,7 +80,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val previewHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
     override def handle = {
       case HoverVertex(v) => updated(
-        value.copy(hoveredVertex = Some(v), highlightedVertices = value.publicationVisualization.graph.neighbours(v)),
+        value.copy(hoveredVertex = Some(v), highlightedVertices = value.publicationVisualization.displayGraph.neighbours(v)),
         Effect(v match {
           case p: graph.Publication => Future.successful { SetPreview(p) }
           case p: graph.PublicationSet => Future.successful { SetPreview(p) }

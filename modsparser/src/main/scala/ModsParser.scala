@@ -36,7 +36,6 @@ object ModsParser {
       //   <nameIdentifier type="local">id</nameIdentifier>
       // </name>
       //
-      //TODO: not extracted:
       // fak07.xml-  <titleInfo>
       // fak07.xml:    <title>Smart Home Medical Technologies: Users’ Requirements for Conditional Acceptance</title>
       // fak07.xml-  </titleInfo>
@@ -53,6 +52,14 @@ object ModsParser {
       //TODO: right now all Authors without nameIdentifier or "P:(DE-HGF)0" are skipped
       // case name @ <name>{ _* }</name> if (name \ "@type").text == "personal" =>
       //   name match {
+      case name @ <name>{ _,
+        <namePart>{ author }</namePart>, _,
+        <namePart>{ termsOfAdress }</namePart>, _,
+        role, _,
+        affiliation, _,
+        <nameIdentifier>{ nameIdentifier }</nameIdentifier>, _
+        }</name> if (name \ "@type").text == "personal" && nameIdentifier.text != "P:(DE-HGF)0" =>
+        Author(nameIdentifier.text, author.text, numPattern.findFirstIn(termsOfAdress.text).get.toInt)
       case name @ <name>{ _,
         <namePart>{ author }</namePart>, _,
         <namePart>{ termsOfAdress }</namePart>, _,

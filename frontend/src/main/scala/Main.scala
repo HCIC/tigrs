@@ -39,15 +39,26 @@ import scala.scalajs.js.typedarray._
 
 import dom.ext.Ajax
 
+import scala.util.{Try, Success, Failure}
+
 object Data {
-  def downloadGraph(name: String): Future[DirectedGraph[graph.Vertex]] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
-    Main.AjaxGetByteBuffer(s"data/$name.boo").map { byteBuffer =>
-      println("downloading graph...")
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  def ajaxGetByteBuffer(url: String): Future[ByteBuffer] = {
+    Ajax.get(
+      url,
+      responseType = "arraybuffer",
+      headers = Map("Content-Type" -> "application/octet-stream")
+    ).map(xhr => TypedArrayBuffer.wrap(xhr.response.asInstanceOf[ArrayBuffer]))
+  }
+
+  def downloadPublications(name: String): Future[Seq[Publication]] = {
+    ajaxGetByteBuffer(s"data/$name.boo").map { byteBuffer =>
+      println("downloading data...")
       import PublicationPickler._
-      val g = Unpickle[DirectedGraph[graph.Vertex]].fromBytes(byteBuffer)
-      println(s"downloaded graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
-      g
+      val ps = Unpickle[Seq[Publication]].fromBytes(byteBuffer)
+      println(s"downloaded ${ps.size} publications.")
+      ps
     }
   }
 }
@@ -68,10 +79,11 @@ object Visualization {
   def render(conf: WidgetConfig) {
     AppCircuit.dispatch(ShowSliderWidget(conf.sliderWidget.getOrElse(false)))
 
-    downloadGraph(s"fakall.ikz.${conf.ikz}.cliquemergedgraph_1.0_1.0").onSuccess {
-      case graph =>
-        AppCircuit.dispatch(SetGraph(graph))
+    downloadPublications(s"fakall.ikz.${conf.ikz}").onComplete {
+      case Success(ps) =>
+        AppCircuit.dispatch(SetPublications(ps))
         updateDimensions
+      case Failure(e) => console.log(s"error downloading publications: $e")
     }
     window.addEventListener("resize", { e: Event => updateDimensions() })
 
@@ -91,7 +103,7 @@ object Visualization {
         ^.width := "100%",
         ^.height := "100%",
         GraphView(
-          proxy.value.publicationVisualization.graph,
+          proxy.value.publicationVisualization.displayGraph,
           proxy.value.publicationVisualization.dimensions,
           Some(GraphConfig(
             proxy.value.publicationVisualization.config,
@@ -145,16 +157,16 @@ object Visualization {
             configSlider("LinkStrength", 1, 10, 0.5, lens[SimulationConfig] >> 'linkStrength),
             configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
             configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
-            configSlider("PubSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'pubSimilarity,
-              Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f"))),
-            configSlider("AuthorSimilarity", 0.1, 1.1, 0.1, lens[SimulationConfig] >> 'authorSimilarity,
-              Some(c => DownloadGraph(f"fakall.ikz.080013.cliquemergedgraph_${c.pubSimilarity}%.1f_${c.authorSimilarity}%.1f")))
+            configSlider("PubSimilarity", 0.1, 1.1, 0.01, lens[SimulationConfig] >> 'pubSimilarity,
+              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(model.publicationVisualization.publications)))),
+            configSlider("AuthorSimilarity", 0.1, 1.1, 0.01, lens[SimulationConfig] >> 'authorSimilarity,
+              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(model.publicationVisualization.publications))))
           )
         )
       )
     }.build
 
-  val preview = ReactComponentB[ModelProxy[Option[AnyRef]]]("PublicationView")
+  val preview = ReactComponentB[ModelProxy[Option[AnyRef]]]("Preview")
     .render_P(proxy =>
       proxy.value match {
         case Some(data) =>
@@ -182,15 +194,6 @@ object Visualization {
                   projects.headOption.map(_ => "Projects:"),
                   <.ul(projects.map(p => <.li(p.name)))
                 )
-              case PublicationSeq(ps) =>
-                <.div(
-                  <.div(ps.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
-                  <.div(ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)))
-                )
-              case AuthorSeq(as) =>
-                <.div(
-                  <.div(as.map(p => <.div(<.b(p.name))))
-                )
               case a: Author =>
                 <.div(
                   <.h3(a.name),
@@ -211,8 +214,13 @@ object Visualization {
                 )
               case graph.PublicationSet(_, ps) =>
                 <.div(
-                  <.div(ps.map(p => <.div(s"[${p.origin.date}] ", <.b(p.title)))),
-                  <.div(ps.flatMap(p => p.authors).toSeq.sortBy(_.name).map(a => <.div(a.name)))
+                  ps.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
+                  <.br(),
+                  ps.flatMap(p => p.authors).toSeq.sortBy(_.name).map(a => <.div(a.name))
+                )
+              case graph.AuthorSet(_, as) =>
+                <.div(
+                  as.map(a => <.div(^.key := a.id, <.b(a.name)))
                 )
               case other => other.toString
             }
@@ -223,74 +231,66 @@ object Visualization {
 
 }
 
-object Main extends JSApp {
+// object Main extends JSApp {
 
-  import scala.concurrent.ExecutionContext.Implicits.global
-  def main() {
+//   def main() {
 
-    downloadGraph("fakall.ikz.080013.cliquemergedgraph_1.0_1.0").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
+//     downloadGraph("fakall.ikz.080013.cliquemergedgraph_1.0_1.0").onSuccess { case graph => AppCircuit.dispatch(SetGraph(graph)) }
 
-    val modelConnect = AppCircuit.connect(m => m)
-    ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
-  }
+//     val modelConnect = AppCircuit.connect(m => m)
+//     ReactDOM.render(modelConnect(mainView(_)), document.getElementById("container"))
+//   }
 
-  def renderFilters(proxy: ModelProxy[RootModel]) = {
-    val model = proxy.value
-    val filters = model.publicationVisualization.filters
-    val config = model.publicationVisualization.config
-    val search = model.publicationVisualization.search
-    def update(filters: (String) => Filters)(e: ReactEventI) = {
-      proxy.dispatchCB(SetFilters(filters(e.target.value)))
-    }
+//   def renderFilters(proxy: ModelProxy[RootModel]) = {
+//     val model = proxy.value
+//     val filters = model.publicationVisualization.filters
+//     val config = model.publicationVisualization.config
+//     val search = model.publicationVisualization.search
+//     def update(filters: (String) => Filters)(e: ReactEventI) = {
+//       proxy.dispatchCB(SetFilters(filters(e.target.value)))
+//     }
 
-    <.div( // <.div("Title: ", <.input(
-    //   ^.`type` := "text", // ^.value := search.title,
-    //   // ^.onChange --> Callback.empty,
-    //   ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
-    //     if (e.charCode == 13)
-    //       proxy.dispatch(SetSearch(Search(title = e.target.value)))
-    //     else
-    //       Callback.empty
-    //   })
-    // )),
-    // filters.filters.map {
-    //   case f: KeywordFilter =>
-    //     <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
-    //       ^.onChange ==> update(v => filters.copy(keyword = KeywordFilter(v)))))
-    //   case f: AuthorFilter =>
-    //     <.div("Author:", <.input(^.`type` := "text", ^.value := f.query,
-    //       ^.onChange ==> update(v => filters.copy(author = AuthorFilter(v)))))
-    //   case f: LimitFilter =>
-    //     <.div("Limit:", <.input(^.`type` := "number", ^.value := f.limit,
-    //       ^.onChange ==> update(v => filters.copy(limit = LimitFilter(v.toInt.abs)))))
-    //   case f => <.div(f.toString)
-    // }
-    )
-  }
+//     <.div( // <.div("Title: ", <.input(
+//     //   ^.`type` := "text", // ^.value := search.title,
+//     //   // ^.onChange --> Callback.empty,
+//     //   ^.onKeyPress ==> ((e: ReactKeyboardEventI) => {
+//     //     if (e.charCode == 13)
+//     //       proxy.dispatch(SetSearch(Search(title = e.target.value)))
+//     //     else
+//     //       Callback.empty
+//     //   })
+//     // )),
+//     // filters.filters.map {
+//     //   case f: KeywordFilter =>
+//     //     <.div("Keyword:", <.input(^.`type` := "text", ^.value := f.query,
+//     //       ^.onChange ==> update(v => filters.copy(keyword = KeywordFilter(v)))))
+//     //   case f: AuthorFilter =>
+//     //     <.div("Author:", <.input(^.`type` := "text", ^.value := f.query,
+//     //       ^.onChange ==> update(v => filters.copy(author = AuthorFilter(v)))))
+//     //   case f: LimitFilter =>
+//     //     <.div("Limit:", <.input(^.`type` := "number", ^.value := f.limit,
+//     //       ^.onChange ==> update(v => filters.copy(limit = LimitFilter(v.toInt.abs)))))
+//     //   case f => <.div(f.toString)
+//     // }
+//     )
+//   }
 
-  val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
-    .render_P { proxy =>
-      <.div(
-        ^.position := "absolute",
-        ^.top := "0",
-        ^.left := "0",
-        ^.width := "100%",
-        ^.height := "100%",
-        ^.zIndex := "-1",
-        <.div(
-          proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, Vec2(400, 400), Some(
-            GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex, v.value.highlightedVertices)
-          )))
-        )
-      )
-    }
-    .build
+//   val mainView = ReactComponentB[ModelProxy[RootModel]]("MainView")
+//     .render_P { proxy =>
+//       <.div(
+//         ^.position := "absolute",
+//         ^.top := "0",
+//         ^.left := "0",
+//         ^.width := "100%",
+//         ^.height := "100%",
+//         ^.zIndex := "-1",
+//         <.div(
+//           proxy.wrap(m => m)(v => GraphView(v.value.publicationVisualization.graph, Vec2(400, 400), Some(
+//             GraphConfig(v.value.publicationVisualization.config, v.value.hoveredVertex, v.value.highlightedVertices)
+//           )))
+//         )
+//       )
+//     }
+//     .build
 
-  def AjaxGetByteBuffer(url: String): Future[ByteBuffer] = {
-    Ajax.get(
-      url,
-      responseType = "arraybuffer",
-      headers = Map("Content-Type" -> "application/octet-stream")
-    ).map(xhr => TypedArrayBuffer.wrap(xhr.response.asInstanceOf[ArrayBuffer]))
-  }
-}
+// }

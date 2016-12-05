@@ -54,7 +54,7 @@ lazy val modsParser = (project in file("modsparser"))
       "io.circe" %% "circe-parser" % circeVersion ::
       Nil,
     scalacOptions ++=
-      "-opt:l:classpath" ::
+      // "-opt:l:classpath" ::
       Nil
   )
   .dependsOn(datatypesJVM)
@@ -78,7 +78,6 @@ val reactVersion = "15.3.2"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
   .settings(
-    persistLauncher := true,
     persistLauncher in Test := false,
 
     libraryDependencies ++= (
