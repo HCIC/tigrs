@@ -2,7 +2,7 @@ name := "tigrs"
 
 version := "0.1-SNAPSHOT"
 
-scalaVersion in ThisBuild := "2.12.0"
+scalaVersion in ThisBuild := "2.12.1"
 
 lazy val commonSettings = Seq(
 
@@ -74,7 +74,7 @@ lazy val indexer = (project in file("indexer"))
   .enablePlugins(ScalaJSPlugin)
   .dependsOn(datatypesJS)
 
-val reactVersion = "15.3.2"
+val reactVersion = "15.4.1"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
   .settings(
