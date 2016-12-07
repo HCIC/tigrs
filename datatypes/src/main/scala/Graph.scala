@@ -88,16 +88,16 @@ package object graph {
     type P = tigrs.Publication
     type A = tigrs.Author
 
-    val authors: Set[tigrs.Author] = publications.flatMap(_.authors)(breakOut)
+    val authors: Set[tigrs.Author] = /*time("authors")*/ { publications.flatMap(_.authors)(breakOut) }
 
-    val aToP: collection.Map[A, collection.Set[P]] = {
+    val aToP: collection.Map[A, collection.Set[P]] = /*time("aToP")*/ {
       val map = new mutable.HashMap[A, Set[P]]()
       for (publication <- publications; author <- publication.authors)
         map(author) = map.getOrElse(author, Set.empty) + publication
       map
     }
 
-    val authorSetSimilarityMatrix: collection.Map[(P, P), Int] = {
+    val authorSetSimilarityMatrix: collection.Map[(P, P), Int] = /*time("authorMatrix")*/ {
       val matrix = new mutable.HashMap[(P, P), Int]()
       // println("combinations: " + aToP.map { case (_, ps) => ps.toSeq.combinations(2).size }.toSeq.sorted)
       for ((_, ps) <- aToP; pa <- ps; pb <- ps if pa.recordId > pb.recordId) {
@@ -107,7 +107,7 @@ package object graph {
       matrix
     }
 
-    val publicationSetSimilarityMatrix: collection.Map[(A, A), Int] = {
+    val publicationSetSimilarityMatrix: collection.Map[(A, A), Int] = /*time("pubMatrix")*/ {
       val matrix = new mutable.HashMap[(A, A), Int]()
       for (p <- publications; aa <- p.authors; ab <- p.authors if aa.id > ab.id) {
         val pair = (ab, aa)
@@ -116,24 +116,24 @@ package object graph {
       matrix
     }
 
-    val mergablePublications: Set[Edge[P]] = {
+    val mergablePublications: Set[Edge[P]] = /*time("mergePubEdges")*/ {
       authorSetSimilarityMatrix.collect {
         case ((pa, pb), commonAuthors) if commonAuthors.toDouble / (pa.authors.size max pb.authors.size) >= authorThreshold =>
           Edge(pa, pb)
       }(breakOut)
     }
-    val mergableAuthors: Set[Edge[A]] = {
+    val mergableAuthors: Set[Edge[A]] = /*time("mergeAuthorEdges")*/ {
       publicationSetSimilarityMatrix.collect {
         case ((aa, ab), commonPubs) if commonPubs.toDouble / (aToP(aa).size max aToP(ab).size) >= pubThreshold =>
           Edge(aa, ab)
       }(breakOut)
     }
-    val pubSets: Set[PublicationSet] = { DirectedGraph(vertices = publications.toSet, edges = mergablePublications).connectedComponents.map(ps => PublicationSet(ps.map(_.recordId), ps)) }
-    val authorSets: Set[AuthorSet] = { DirectedGraph(vertices = authors, edges = mergableAuthors).connectedComponents.map(as => AuthorSet(as.map(_.id), as)) }
+    val pubSets: Set[PublicationSet] = /*time("cc pubsets")*/ { DirectedGraph(vertices = publications.toSet, edges = mergablePublications).connectedComponents.map(ps => PublicationSet(ps.map(_.recordId), ps)) }
+    val authorSets: Set[AuthorSet] = /*time("cc authorsets")*/ { DirectedGraph(vertices = authors, edges = mergableAuthors).connectedComponents.map(as => AuthorSet(as.map(_.id), as)) }
 
-    val vertices: Set[Vertex] = { pubSets ++ authorSets }
-    val aToAs: Map[A, AuthorSet] = { authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut) }
-    val edges: Set[Edge[Vertex]] = { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Set[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
+    val vertices: Set[Vertex] = /*time("vertices")*/ { pubSets ++ authorSets }
+    val aToAs: Map[A, AuthorSet] = /*time("aToAs")*/ { authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut) }
+    val edges: Set[Edge[Vertex]] = /*time("edges")*/ { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Set[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
 
     DirectedGraph(vertices, edges)
   }
