@@ -61,6 +61,14 @@ object Data {
       ps
     }
   }
+
+  def downloadIkzList: Future[Seq[String]] = {
+    ajaxGetByteBuffer(s"data/fakall.ikzlist.boo").map { byteBuffer =>
+      println("downloading ikz list...")
+      val ikzs = Unpickle[Seq[String]].fromBytes(byteBuffer)
+      ikzs
+    }
+  }
 }
 import Data._
 
@@ -84,6 +92,10 @@ object Visualization {
         AppCircuit.dispatch(SetPublications(ps))
         updateDimensions
       case Failure(e) => console.log(s"error downloading publications: $e")
+    }
+    downloadIkzList.onComplete {
+      case Success(ikzs) => AppCircuit.dispatch(SetIkzList(ikzs))
+      case Failure(e) => console.log(s"error downloading ikz list: $e")
     }
     window.addEventListener("resize", { e: Event => updateDimensions() })
 
@@ -119,7 +131,8 @@ object Visualization {
   val configWidget = ReactComponentB[ModelProxy[RootModel]]("configWidget")
     .render_P { proxy =>
       val model = proxy.value
-      val config = model.publicationVisualization.config
+      val vis = model.publicationVisualization
+      val config = vis.config
 
       def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double], additionalDispatch: Option[SimulationConfig => Action] = None) = {
         <.div(
@@ -151,16 +164,22 @@ object Visualization {
           ^.display := "flex",
           ^.flex := "1 1 auto",
           <.div(
+            "ikz: ",
+            <.select(
+              ^.value := vis.ikz,
+              ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetIkz(e.target.value))),
+              vis.ikzs.sorted.map(ikz => <.option(^.value := ikz, ikz))
+            ),
             configSlider("Radius", 1, 20, 0.5, lens[SimulationConfig] >> 'radius),
             configSlider("Charge", 1, 1000, 10, lens[SimulationConfig] >> 'charge),
             configSlider("LinkDistance", 1, 100, 1, lens[SimulationConfig] >> 'linkDistance),
             configSlider("LinkStrength", 1, 10, 0.5, lens[SimulationConfig] >> 'linkStrength),
             configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
-            configSlider("ChargeDistance", 1, 1000, 10, lens[SimulationConfig] >> 'chargeDistance),
-            configSlider("PubSimilarity", 0.1, 1.1, 0.01, lens[SimulationConfig] >> 'pubSimilarity,
-              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(model.publicationVisualization.publications)))),
-            configSlider("AuthorSimilarity", 0.1, 1.1, 0.01, lens[SimulationConfig] >> 'authorSimilarity,
-              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(model.publicationVisualization.publications))))
+            configSlider("ChargeDistance", 1, 10000, 10, lens[SimulationConfig] >> 'chargeDistance),
+            configSlider("PubSimilarity", 0.01, 1.1, 0.01, lens[SimulationConfig] >> 'pubSimilarity,
+              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications)))),
+            configSlider("AuthorSimilarity", 0.01, 1.1, 0.01, lens[SimulationConfig] >> 'authorSimilarity,
+              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications))))
           )
         )
       )

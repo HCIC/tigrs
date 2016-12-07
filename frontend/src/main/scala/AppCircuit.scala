@@ -29,7 +29,7 @@ case class Search(title: String = "") {
 case class SimulationConfig(
   radius: Double = 3,
   charge: Double = 550,
-  chargeDistance: Double = 999,
+  chargeDistance: Double = 2000,
   linkDistance: Double = 5,
   linkStrength: Double = 1,
   gravity: Double = 0.15,
@@ -40,6 +40,8 @@ case class SimulationConfig(
 case class PublicationVisualization(
   search: Search = Search(),
   // filters: Filters = Filters(),
+  ikzs: Seq[String] = Nil,
+  ikz: String = "080025",
   publications: Seq[Publication] = Nil,
   displayGraph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty,
   dimensions: Vec2 = Vec2(100, 100),
@@ -56,6 +58,8 @@ case class SetDisplayGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Act
 case class SetDimensions(dimensions: Vec2) extends Action
 case class DownloadPublications(url: String) extends Action
 case class SetPublications(ps: Seq[Publication]) extends Action
+case class SetIkzList(ikzs: Seq[String]) extends Action
+case class SetIkz(ikz: String) extends Action
 case class SetConfig(config: SimulationConfig) extends Action
 case class ShowSliderWidget(show: Boolean) extends Action
 
@@ -67,6 +71,8 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       // case SetFilters(f) => updated(value.copy(filters = f))
       case SetDisplayGraph(g) => updated(value.copy(displayGraph = g))
       case SetPublications(ps) => updated(value.copy(publications = ps), Effect(Future { SetDisplayGraph(tigrs.graph.mergedGraph(value.config.pubSimilarity, value.config.authorSimilarity)(ps)) }))
+      case SetIkzList(ikzs) => updated(value.copy(ikzs = ikzs))
+      case SetIkz(ikz) => updated(value.copy(ikz = ikz), Effect { Future.successful(DownloadPublications(s"fakall.ikz.$ikz")) })
       case SetDimensions(dim) => updated(value.copy(dimensions = dim))
       case DownloadPublications(url) => effectOnly(Effect {
         Data.downloadPublications(url).map {
