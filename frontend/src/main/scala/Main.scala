@@ -25,14 +25,10 @@ import pharg._
 import vectory._
 import shapeless.{Lens, lens}
 
-import js.JSConverters._
 import scalajs.js.typedarray._
 import concurrent.{Future, Promise, Await}
 import concurrent.duration.Duration
 import java.nio.ByteBuffer
-
-import org.scalajs.dom.idb.Database
-import org.scalajs.dom.raw.IDBVersionChangeEvent
 
 import scala.scalajs.js.typedarray.TypedArrayBufferOps._
 import scala.scalajs.js.typedarray._
@@ -114,14 +110,14 @@ object Visualization {
       <.div(
         ^.width := "100%",
         ^.height := "100%",
-        GraphView(
-          proxy.value.publicationVisualization.displayGraph,
-          proxy.value.publicationVisualization.dimensions,
-          Some(GraphConfig(
-            proxy.value.publicationVisualization.config,
-            proxy.value.hoveredVertex,
-            proxy.value.highlightedVertices
-          ))
+        GraphViewCanvas(
+          proxy.value.publicationVisualization.displayGraph
+        // proxy.value.publicationVisualization.dimensions,
+        // Some(GraphConfig(
+        //   proxy.value.publicationVisualization.config,
+        //   proxy.value.hoveredVertex,
+        //   proxy.value.highlightedVertices
+        // ))
         ),
         proxy.value.publicationVisualization.sliderWidget ?= configWidget(proxy),
         proxy.wrap(m => m.preview)(p => preview(p))

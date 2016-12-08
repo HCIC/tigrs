@@ -16,8 +16,11 @@ import org.singlespaced.d3js.d3
 import org.singlespaced.d3js._
 import org.singlespaced.d3js.Ops._
 
-abstract class D3[Props](componentName: String = "D3") {
-  abstract class D3Backend($: BackendScope[Props, Unit]) {
+abstract class D3[_Props](componentName: String = "D3") {
+  type Props = _Props
+  type Scope = BackendScope[Props, Unit]
+
+  abstract class D3Backend($: Scope) {
     def render(p: Props) = <.div(^.ref := "component")
     lazy val component = d3.select(Ref[raw.HTMLElement]("component")($).get)
 
@@ -25,7 +28,7 @@ abstract class D3[Props](componentName: String = "D3") {
     def update(p: Props) = Callback.empty
     def cleanup() = Callback.empty
   }
-  val backendFactory: BackendScope[Props, Unit] => D3Backend
+  val backendFactory: Scope => D3Backend
 
   protected val component = ReactComponentB[Props](componentName)
     .backend(backendFactory(_))
@@ -40,9 +43,9 @@ abstract class D3[Props](componentName: String = "D3") {
 }
 
 object D3Demo extends D3[List[Int]]("D3Demo") {
-  class Backend($: BackendScope[List[Int], Unit]) extends D3Backend($) {
+  class Backend($: Scope) extends D3Backend($) {
 
-    override def update(p: List[Int]) = Callback {
+    override def update(p: Props) = Callback {
       val b = component.selectAll("b")
         .data(p.toJSArray)
 
