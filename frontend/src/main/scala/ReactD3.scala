@@ -1,0 +1,65 @@
+package fdietze.scalajs.react.components
+
+import collection.mutable
+
+import scalajs.js
+import org.scalajs.dom
+import org.scalajs.dom.console
+import org.scalajs.dom.raw
+import js.JSConverters._
+
+import japgolly.scalajs.react._
+import japgolly.scalajs.react.vdom.prefix_<^._
+
+import org.singlespaced.d3js
+import org.singlespaced.d3js.d3
+import org.singlespaced.d3js._
+import org.singlespaced.d3js.Ops._
+
+abstract class D3[Props](componentName: String = "D3") {
+  abstract class D3Backend($: BackendScope[Props, Unit]) {
+    def render(p: Props) = <.div(^.ref := "component")
+    lazy val component = d3.select(Ref[raw.HTMLElement]("component")($).get)
+
+    def init(p: Props) = Callback.empty
+    def update(p: Props) = Callback.empty
+    def cleanup() = Callback.empty
+  }
+  val backendFactory: BackendScope[Props, Unit] => D3Backend
+
+  protected val component = ReactComponentB[Props](componentName)
+    .backend(backendFactory(_))
+    .render(c => c.backend.render(c.props))
+    .componentDidMount(c => c.backend.init(c.props) >> c.backend.update(c.props))
+    .componentWillReceiveProps(c => c.$.backend.update(c.nextProps))
+    .shouldComponentUpdate(_ => false) // let d3 handle the update, instead of react
+    .componentWillUnmount(c => c.backend.cleanup())
+    .build
+
+  def apply(p: Props) = component(p)
+}
+
+object D3Demo extends D3[List[Int]]("D3Demo") {
+  class Backend($: BackendScope[List[Int], Unit]) extends D3Backend($) {
+
+    override def update(p: List[Int]) = Callback {
+      val b = component.selectAll("b")
+        .data(p.toJSArray)
+
+      b
+        .attr("class", "update")
+
+      b.enter()
+        .append("b")
+        .text((d: Int) => d.toString)
+
+      b
+        .text((d: Int) => d.toString)
+
+      b.exit()
+        .remove()
+    }
+  }
+
+  val backendFactory = new Backend(_)
+}
