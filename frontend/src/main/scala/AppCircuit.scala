@@ -1,6 +1,6 @@
 package tigrs
 
-import org.scalajs.dom
+import org.scalajs.dom._
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
 
@@ -69,7 +69,9 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
     override def handle = {
       // case SetFilters(f) => updated(value.copy(filters = f))
-      case SetDisplayGraph(g) => updated(value.copy(displayGraph = g))
+      case SetDisplayGraph(g) =>
+        console.log(s"displaying graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
+        updated(value.copy(displayGraph = g))
       case SetPublications(ps) => updated(value.copy(publications = ps), Effect(Future { SetDisplayGraph(tigrs.graph.mergedGraph(value.config.pubSimilarity, value.config.authorSimilarity)(ps)) }))
       case SetIkzList(ikzs) => updated(value.copy(ikzs = ikzs))
       case SetIkz(ikz) => updated(value.copy(ikz = Some(ikz)), Effect { Future.successful(DownloadPublications(s"fakall.ikz.$ikz")) })
