@@ -83,16 +83,12 @@ object Visualization {
   def render(conf: WidgetConfig) {
     AppCircuit.dispatch(ShowSliderWidget(conf.sliderWidget.getOrElse(false)))
 
-    downloadPublications(s"fakall.ikz.${conf.ikz}").onComplete {
-      case Success(ps) =>
-        AppCircuit.dispatch(SetPublications(ps))
-        updateDimensions
-      case Failure(e) => console.log(s"error downloading publications: $e")
-    }
+    AppCircuit.dispatch(SetIkz(conf.ikz))
     downloadIkzList.onComplete {
       case Success(ikzs) => AppCircuit.dispatch(SetIkzList(ikzs))
       case Failure(e) => console.log(s"error downloading ikz list: $e")
     }
+
     window.addEventListener("resize", { e: Event => updateDimensions() })
 
     def updateDimensions() {
@@ -164,6 +160,7 @@ object Visualization {
             <.select(
               ^.value := vis.ikz,
               ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetIkz(e.target.value))),
+              <.option(),
               vis.ikzs.sorted.map(ikz => <.option(^.value := ikz, ikz))
             ),
             configSlider("Radius", 1, 20, 0.5, lens[SimulationConfig] >> 'radius),

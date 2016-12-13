@@ -41,7 +41,7 @@ case class PublicationVisualization(
   search: Search = Search(),
   // filters: Filters = Filters(),
   ikzs: Seq[String] = Nil,
-  ikz: String = "080025",
+  ikz: Option[String] = None,
   publications: Seq[Publication] = Nil,
   displayGraph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty,
   dimensions: Vec2 = Vec2(100, 100),
@@ -72,7 +72,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case SetDisplayGraph(g) => updated(value.copy(displayGraph = g))
       case SetPublications(ps) => updated(value.copy(publications = ps), Effect(Future { SetDisplayGraph(tigrs.graph.mergedGraph(value.config.pubSimilarity, value.config.authorSimilarity)(ps)) }))
       case SetIkzList(ikzs) => updated(value.copy(ikzs = ikzs))
-      case SetIkz(ikz) => updated(value.copy(ikz = ikz), Effect { Future.successful(DownloadPublications(s"fakall.ikz.$ikz")) })
+      case SetIkz(ikz) => updated(value.copy(ikz = Some(ikz)), Effect { Future.successful(DownloadPublications(s"fakall.ikz.$ikz")) })
       case SetDimensions(dim) => updated(value.copy(dimensions = dim))
       case DownloadPublications(url) => effectOnly(Effect {
         Data.downloadPublications(url).map {
