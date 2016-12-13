@@ -11,18 +11,13 @@ import js.JSConverters._
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import org.singlespaced.d3js
-import org.singlespaced.d3js.d3
-import org.singlespaced.d3js._
-import org.singlespaced.d3js.Ops._
-
 abstract class D3[_Props](componentName: String = "D3") {
   type Props = _Props
   type Scope = BackendScope[Props, Unit]
 
   abstract class D3Backend($: Scope) {
     def render(p: Props) = <.div(^.ref := "component")
-    lazy val component = d3.select(Ref[raw.HTMLElement]("component")($).get)
+    lazy val component = Ref[raw.HTMLElement]("component")($).get
 
     def init(p: Props) = Callback.empty
     def update(p: Props) = Callback.empty
@@ -42,27 +37,27 @@ abstract class D3[_Props](componentName: String = "D3") {
   def apply(p: Props) = component(p)
 }
 
-object D3Demo extends D3[List[Int]]("D3Demo") {
-  class Backend($: Scope) extends D3Backend($) {
+// object D3Demo extends D3[List[Int]]("D3Demo") {
+//   class Backend($: Scope) extends D3Backend($) {
 
-    override def update(p: Props) = Callback {
-      val b = component.selectAll("b")
-        .data(p.toJSArray)
+//     override def update(p: Props) = Callback {
+//       val b = component.selectAll("b")
+//         .data(p.toJSArray)
 
-      b
-        .attr("class", "update")
+//       b
+//         .attr("class", "update")
 
-      b.enter()
-        .append("b")
-        .text((d: Int) => d.toString)
+//       b.enter()
+//         .append("b")
+//         .text((d: Int) => d.toString)
 
-      b
-        .text((d: Int) => d.toString)
+//       b
+//         .text((d: Int) => d.toString)
 
-      b.exit()
-        .remove()
-    }
-  }
+//       b.exit()
+//         .remove()
+//     }
+//   }
 
-  val backendFactory = new Backend(_)
-}
+//   val backendFactory = new Backend(_)
+// }
