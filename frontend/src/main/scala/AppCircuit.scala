@@ -17,9 +17,7 @@ import concurrent.Future
 
 case class RootModel(
   publicationVisualization: PublicationVisualization,
-  hoveredVertex: Option[graph.Vertex] = None,
-  highlightedVertices: Set[graph.Vertex] = Set.empty,
-  preview: Option[AnyRef] = None
+  hoveredVertex: Option[graph.Vertex] = None
 )
 
 case class Search(title: String = "") {
@@ -51,7 +49,6 @@ case class PublicationVisualization(
 }
 
 case class HoverVertex(v: graph.Vertex) extends Action
-case class SetPreview(d: AnyRef) extends Action
 case object UnHoverVertex extends Action
 // case class SetFilters(filter: Filters) extends Action
 case class SetDisplayGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
@@ -88,19 +85,9 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   val previewHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
     override def handle = {
       case HoverVertex(v) => updated(
-        value.copy(hoveredVertex = Some(v), highlightedVertices = value.publicationVisualization.displayGraph.neighbours(v)),
-        Effect(v match {
-          case p: graph.Publication => Future.successful { SetPreview(p) }
-          case p: graph.PublicationSet => Future.successful { SetPreview(p) }
-          case a: graph.Author => Future.successful { SetPreview(a) }
-          case a: graph.AuthorSet => Future.successful { SetPreview(a) }
-          case other =>
-            println(other)
-            Future.successful { NoAction }
-        })
+        value.copy(hoveredVertex = Some(v))
       )
-      case SetPreview(v) => updated(value.copy(preview = Some(v)))
-      case UnHoverVertex => updated(value.copy(hoveredVertex = None, preview = None))
+      case UnHoverVertex => updated(value.copy(hoveredVertex = None))
     }
   }
   val actionHandler = composeHandlers(publicaitonsHandler, previewHandler)

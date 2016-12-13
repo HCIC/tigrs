@@ -20,7 +20,7 @@ abstract class D3[_Props](componentName: String = "D3") {
     lazy val component = Ref[raw.HTMLElement]("component")($).get
 
     def init(p: Props) = Callback.empty
-    def update(p: Props) = Callback.empty
+    def update(p: Props, oldProps: Option[Props] = None) = Callback.empty
     def cleanup() = Callback.empty
   }
   val backendFactory: Scope => D3Backend
@@ -28,8 +28,8 @@ abstract class D3[_Props](componentName: String = "D3") {
   protected val component = ReactComponentB[Props](componentName)
     .backend(backendFactory(_))
     .render(c => c.backend.render(c.props))
-    .componentDidMount(c => c.backend.init(c.props) >> c.backend.update(c.props))
-    .componentWillReceiveProps(c => c.$.backend.update(c.nextProps))
+    .componentDidMount(c => c.backend.init(c.props) >> c.backend.update(c.props, None))
+    .componentWillReceiveProps(c => c.$.backend.update(c.nextProps, Some(c.currentProps)))
     .shouldComponentUpdate(_ => false) // let d3 handle the update, instead of react
     .componentWillUnmount(c => c.backend.cleanup())
     .build

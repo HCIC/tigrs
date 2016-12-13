@@ -37,6 +37,8 @@ import dom.ext.Ajax
 
 import scala.util.{Try, Success, Failure}
 
+import graph.Vertex
+
 object Data {
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -115,7 +117,7 @@ object Visualization {
           )
         ),
         proxy.value.publicationVisualization.sliderWidget ?= configWidget(proxy),
-        proxy.wrap(m => m.preview)(p => preview(p))
+        proxy.wrap(m => m.hoveredVertex)(p => preview(p))
       )
     }.build
 
@@ -177,8 +179,9 @@ object Visualization {
       )
     }.build
 
-  val preview = ReactComponentB[ModelProxy[Option[AnyRef]]]("Preview")
-    .render_P(proxy =>
+  val preview = ReactComponentB[ModelProxy[Option[Vertex]]]("Preview")
+    .render_P { proxy =>
+      import graph._
       proxy.value match {
         case Some(data) =>
           <.div(
@@ -190,38 +193,38 @@ object Visualization {
             ^.padding := "10px",
             ^.width := "400px",
             data match {
-              case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-                <.div(
-                  <.h3(title),
-                  outlet.map(o => <.div(o.name)),
-                  <.ul(authors.map(a => <.li(a.name))),
-                  keywords.headOption.map(_ => "Keywords:"),
-                  <.ul(keywords.map(k => <.li(k.keyword))),
-                  <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
-                  uri.map(uri => <.a(^.href := uri, uri)),
-                  <.div(s"record: $recordId"),
-                  owner.map(_ => "Owner:"),
-                  owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
-                  projects.headOption.map(_ => "Projects:"),
-                  <.ul(projects.map(p => <.li(p.name)))
-                )
-              case a: Author =>
+              // case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
+              //   <.div(
+              //     <.h3(title),
+              //     outlet.map(o => <.div(o.name)),
+              //     <.ul(authors.map(a => <.li(a.name))),
+              //     keywords.headOption.map(_ => "Keywords:"),
+              //     <.ul(keywords.map(k => <.li(k.keyword))),
+              //     <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
+              //     uri.map(uri => <.a(^.href := uri, uri)),
+              //     <.div(s"record: $recordId"),
+              //     owner.map(_ => "Owner:"),
+              //     owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
+              //     projects.headOption.map(_ => "Projects:"),
+              //     <.ul(projects.map(p => <.li(p.name)))
+              //   )
+              // case o: Outlet =>
+              //   <.div(
+              //     <.h3(o.name)
+              //   )
+              // case k: Keyword =>
+              //   <.div(
+              //     <.h3(k.keyword)
+              //   )
+              // case p: Project =>
+              //   <.div(
+              //     <.h3(p.name),
+              //     <.h2(p.id)
+              //   )
+              case Author(id, a: tigrs.Author) =>
                 <.div(
                   <.h3(a.name),
-                  a.id
-                )
-              case o: Outlet =>
-                <.div(
-                  <.h3(o.name)
-                )
-              case k: Keyword =>
-                <.div(
-                  <.h3(k.keyword)
-                )
-              case p: Project =>
-                <.div(
-                  <.h3(p.name),
-                  <.h2(p.id)
+                  id
                 )
               case graph.PublicationSet(_, ps) =>
                 <.div(
@@ -237,7 +240,8 @@ object Visualization {
             }
           )
         case None => <.div()
-      })
+      }
+    }
     .build
 
 }
