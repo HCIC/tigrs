@@ -12,15 +12,19 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import fdietze.scalajs.react.components._
 
+import tigrs.graph.Vertex
+
 import Math._
 
 case class GraphConfig(
-  simConfig: SimulationConfig,
-  hovered: Option[graph.Vertex] = None,
-  highlightedVertices: Set[graph.Vertex] = Set.empty
+  graph: DirectedGraph[Vertex],
+  dimensions: Vec2
+// simConfig: SimulationConfig,
+// hovered: Option[Vertex] = None,
+// highlightedVertices: Set[Vertex] = Set.empty
 )
 
-object GraphViewCanvas extends D3[DirectedGraph[graph.Vertex]]("GraphViewCanvas") {
+object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
   import js.Dynamic.global
   val d3 = global.d3
 
@@ -39,24 +43,26 @@ object GraphViewCanvas extends D3[DirectedGraph[graph.Vertex]]("GraphViewCanvas"
   class Backend($: Scope) extends D3Backend($) {
     lazy val canvas = d3.select(component).append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
-    val width = 900.0
-    val height = 900.0
 
     val simulation = d3.forceSimulation()
-      .force("center", d3.forceCenter(width / 2, height / 2))
       .force("charge", d3.forceManyBody())
       .force("link", d3.forceLink())
 
     simulation.on("tick", (e: Event) => {
-      updateVisualization()
+      updateVisualization($.props.runNow())
     })
 
     override def update(p: Props) = Callback {
+      import p._
+      import dimensions._
+
       canvas.attr("width", width).attr("height", height)
 
-      val vertexData = p.vertices.toJSArray
-      val edgeData = p.edges.map(e => new D3E(e.in.asInstanceOf[D3V], e.out.asInstanceOf[D3V])).toJSArray
+      val vertexData = graph.vertices.toJSArray
+      val edgeData = graph.edges.map(e => new D3E(e.in.asInstanceOf[D3V], e.out.asInstanceOf[D3V])).toJSArray
 
+      simulation
+        .force("center", d3.forceCenter(width / 2, height / 2))
       simulation
         .nodes(vertexData.asInstanceOf[js.Array[D3V]])
       simulation.force("link")
@@ -65,7 +71,8 @@ object GraphViewCanvas extends D3[DirectedGraph[graph.Vertex]]("GraphViewCanvas"
       simulation.alpha(1).restart()
     }
 
-    def updateVisualization() {
+    def updateVisualization(p: Props) {
+      import p.dimensions._
       context.clearRect(0, 0, width, height)
 
       // draw links
@@ -82,7 +89,7 @@ object GraphViewCanvas extends D3[DirectedGraph[graph.Vertex]]("GraphViewCanvas"
         context.moveTo(d.x, d.y)
         context.beginPath()
         context.arc(d.x, d.y, 4.5, 0, 2 * Math.PI)
-        context.fillStyle = d.asInstanceOf[graph.Vertex] match {
+        context.fillStyle = d.asInstanceOf[Vertex] match {
           case _: graph.Publication => "#48D7FF"
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.Author => "#FF8A8E"
@@ -99,89 +106,3 @@ object GraphViewCanvas extends D3[DirectedGraph[graph.Vertex]]("GraphViewCanvas"
 
   val backendFactory = new Backend(_)
 }
-
-// object GraphView extends D3[DirectedGraph[graph.Vertex]]("GraphView") {
-//   @js.native
-//   trait D3V extends js.Object {
-//     var x: js.UndefOr[Double] = js.native
-//     var y: js.UndefOr[Double] = js.native
-//   }
-
-//   class D3E(
-//     val source: D3V,
-//     val target: D3V
-//   ) extends d3js.Link[D3V]
-
-//   class Backend($: Scope) extends D3Backend($) {
-//     lazy val svg = component.append("svg")
-//     lazy val vertices = svg.append("g")
-//     lazy val edges = svg.append("g")
-//     val force = d3.layout.force[D3V, D3E]().size((600.0, 600.0))
-
-//     force.on("tick", (e: Event) => {
-//       updateVisualization()
-//     })
-
-//     override def update(p: Props) = Callback {
-//       svg.attr("width", 600).attr("height", 600)
-
-//       // edges first => lazy val is evaluated first => g-element is appended before vertices
-//       // => edges stay in background
-//       val edgeData = p.edges.map(e => new D3E(e.in.asInstanceOf[D3V], e.out.asInstanceOf[D3V])).toJSArray
-//       val edge = edges.selectAll("line").data(edgeData)
-
-//       val vertexData = p.vertices.toJSArray
-//       val vertex = vertices.selectAll("circle").data(vertexData)
-
-//       vertex.enter()
-//         .append("circle")
-
-//       vertex
-//         .attr("r", 5)
-//         .attr("fill", { (d: graph.Vertex) =>
-//           d match {
-//             case _: graph.Publication => "#48D7FF"
-//             case _: graph.PublicationSet => "#48D7FF"
-//             case _: graph.Author => "#FF8A8E"
-//             case _: graph.AuthorSet => "#FF8A8E"
-//             case _: graph.Outlet => "#22E6AB"
-//             case _: graph.Project => "#D720AF"
-//             case _: graph.Keyword => "black"
-//           }
-//         })
-
-//       vertex.exit()
-//         .remove()
-
-//       edge.enter()
-//         .append("line")
-
-//       edge
-//         .attr("stroke", "#8F8F8F")
-
-//       edge.exit()
-//         .remove()
-
-//       force.nodes(vertexData.asInstanceOf[js.Array[D3V]]).links(edgeData)
-//       force.start()
-//     }
-
-//     def updateVisualization() {
-//       val vertex = vertices.selectAll("circle")
-//       val edge = edges.selectAll("line")
-
-//       vertex
-//         .attr("cx", (d: graph.Vertex) => d.asInstanceOf[D3V].x)
-//         .attr("cy", (d: graph.Vertex) => d.asInstanceOf[D3V].y)
-
-//       edge
-//         .attr("x1", (d: D3E) => d.source.asInstanceOf[D3V].x)
-//         .attr("y1", (d: D3E) => d.source.asInstanceOf[D3V].y)
-//         .attr("x2", (d: D3E) => d.target.asInstanceOf[D3V].x)
-//         .attr("y2", (d: D3E) => d.target.asInstanceOf[D3V].y)
-//     }
-
-//   }
-
-//   val backendFactory = new Backend(_)
-// }

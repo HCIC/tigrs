@@ -2,6 +2,8 @@ package tigrs
 
 import pharg._
 
+import graph.Vertex
+
 case class Filters(
   keyword: KeywordFilter = KeywordFilter(),
   author: AuthorFilter = AuthorFilter(),
@@ -17,7 +19,7 @@ case class Filters(
     filtered
   }
 
-  def applyGraphFilters(graph: DirectedGraph[tigrs.graph.Vertex]): DirectedGraph[tigrs.graph.Vertex] = {
+  def applyGraphFilters(graph: DirectedGraph[Vertex]): DirectedGraph[Vertex] = {
     println("applying graph filters...")
     val filtered = graphFilters.foldLeft(graph) { (g, f) => println(s" ${f.getClass.getName}"); f(g) }
     filtered
@@ -26,7 +28,7 @@ case class Filters(
 
 sealed trait Filter
 sealed trait GraphFilter extends Filter {
-  def apply(graph: DirectedGraph[tigrs.graph.Vertex]): DirectedGraph[tigrs.graph.Vertex]
+  def apply(graph: DirectedGraph[Vertex]): DirectedGraph[Vertex]
 }
 sealed trait PublicationFilter extends Filter {
   def apply(publications: Seq[Publication]): Seq[Publication]
@@ -54,7 +56,7 @@ case class AuthorFilter(query: String = "") extends PublicationFilter {
 }
 
 case class MinDegreeFilter(minDegree: Int) extends GraphFilter {
-  def apply(graph: DirectedGraph[tigrs.graph.Vertex]): DirectedGraph[tigrs.graph.Vertex] = {
+  def apply(graph: DirectedGraph[Vertex]): DirectedGraph[Vertex] = {
     graph filter (graph.degree(_) >= minDegree)
   }
 }

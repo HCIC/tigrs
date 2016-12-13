@@ -84,6 +84,8 @@ object Visualization {
     AppCircuit.dispatch(ShowSliderWidget(conf.sliderWidget.getOrElse(false)))
 
     AppCircuit.dispatch(SetIkz(conf.ikz))
+    updateDimensions()
+
     downloadIkzList.onComplete {
       case Success(ikzs) => AppCircuit.dispatch(SetIkzList(ikzs))
       case Failure(e) => console.log(s"error downloading ikz list: $e")
@@ -107,13 +109,10 @@ object Visualization {
         ^.width := "100%",
         ^.height := "100%",
         GraphViewCanvas(
-          proxy.value.publicationVisualization.displayGraph
-        // proxy.value.publicationVisualization.dimensions,
-        // Some(GraphConfig(
-        //   proxy.value.publicationVisualization.config,
-        //   proxy.value.hoveredVertex,
-        //   proxy.value.highlightedVertices
-        // ))
+          GraphConfig(
+            proxy.value.publicationVisualization.displayGraph,
+            proxy.value.publicationVisualization.dimensions
+          )
         ),
         proxy.value.publicationVisualization.sliderWidget ?= configWidget(proxy),
         proxy.wrap(m => m.preview)(p => preview(p))
