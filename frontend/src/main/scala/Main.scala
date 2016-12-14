@@ -220,11 +220,11 @@ object Visualization {
               //     <.h3(p.name),
               //     <.h2(p.id)
               //   )
-              case Author(id, a: tigrs.Author) =>
-                <.div(
-                  <.h3(a.name),
-                  id
-                )
+              // case Author(id, a: tigrs.Author) =>
+              //   <.div(
+              //     <.h3(a.name),
+              //     id
+              //   )
               case graph.PublicationSet(_, ps) =>
                 <.div(
                   ps.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
