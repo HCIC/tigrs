@@ -80,9 +80,12 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
       import p._
       import dimensions._
 
-      canvas.attr("width", width).attr("height", height)
-      simulation
-        .force("center", d3.forceCenter(width / 2, height / 2))
+      if (oldProps.isEmpty || p.dimensions != oldProps.get.dimensions) {
+        canvas.attr("width", width).attr("height", height)
+        simulation
+          .force("center", d3.forceCenter(width / 2, height / 2))
+        simulation.alpha(0.01).restart()
+      }
 
       if (oldProps.isEmpty || oldProps.get.graph != p.graph) {
 
@@ -97,7 +100,6 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
         simulation.alpha(1).restart()
       }
 
-      updateVisualization(p)
     }
 
     def updateVisualization(p: Props) {
@@ -122,11 +124,11 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
         context.fillStyle = d.asInstanceOf[Vertex] match {
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.AuthorSet => "#FF8A8E"
-          // case _: graph.Publication => "#48D7FF"
-          // case _: graph.Author => "#FF8A8E"
-          // case _: graph.Outlet => "#22E6AB"
-          // case _: graph.Project => "#D720AF"
-          // case _: graph.Keyword => "black"
+          case _: graph.Publication => "#48D7FF"
+          case _: graph.Author => "#FF8A8E"
+          case _: graph.Outlet => "#22E6AB"
+          case _: graph.Project => "#D720AF"
+          case _: graph.Keyword => "black"
         }
 
         context.globalAlpha = if (hovered) 1.0 else 0.5
