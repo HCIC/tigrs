@@ -107,16 +107,19 @@ object Visualization {
 
   val widgetView = ReactComponentB[ModelProxy[RootModel]]("WidgetView")
     .render_P { proxy =>
+      val vis = proxy.value.publicationVisualization
       <.div(
         ^.width := "100%",
         ^.height := "100%",
         GraphViewCanvas(
-          GraphConfig(
-            proxy.value.publicationVisualization.displayGraph,
-            proxy.value.publicationVisualization.dimensions
+          GraphProps(
+            vis.displayGraph,
+            vis.dimensions,
+            vis.simConfig,
+            vis.visConfig
           )
         ),
-        proxy.value.publicationVisualization.sliderWidget ?= configWidget(proxy),
+        vis.sliderWidget ?= configWidget(proxy),
         proxy.wrap(m => m.hoveredVertex)(p => preview(p))
       )
     }.build
@@ -125,9 +128,8 @@ object Visualization {
     .render_P { proxy =>
       val model = proxy.value
       val vis = model.publicationVisualization
-      val config = vis.config
 
-      def configSlider(title: String, min: Double, max: Double, step: Double, lens: Lens[SimulationConfig, Double], additionalDispatch: Option[SimulationConfig => Action] = None) = {
+      def configSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
         <.div(
           ^.display := "flex",
           ^.justifyContent := "space-between",
@@ -136,12 +138,8 @@ object Visualization {
             ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
             ^.onChange ==> ((e: ReactEventI) => {
               val newConfig = lens.set(config)(e.target.value.toDouble)
-              proxy.dispatchCB(SetConfig(newConfig)) >> {
-                additionalDispatch match {
-                  case Some(f) => proxy.dispatchCB(f(newConfig))
-                  case None => Callback.empty
-                }
-              }
+              sideEffect(newConfig)
+              proxy.dispatchCB(SetConfig(newConfig))
             })
           )
         )
@@ -164,16 +162,17 @@ object Visualization {
               <.option(),
               vis.ikzs.sorted.map(ikz => <.option(^.value := ikz, ikz))
             ),
-            configSlider("Radius", 1, 20, 0.5, lens[SimulationConfig] >> 'radius),
-            configSlider("Charge", 1, 1000, 10, lens[SimulationConfig] >> 'charge),
-            configSlider("LinkDistance", 1, 100, 1, lens[SimulationConfig] >> 'linkDistance),
-            configSlider("LinkStrength", 1, 10, 0.5, lens[SimulationConfig] >> 'linkStrength),
-            configSlider("Gravity", 0, 1, 0.01, lens[SimulationConfig] >> 'gravity),
-            configSlider("ChargeDistance", 1, 10000, 10, lens[SimulationConfig] >> 'chargeDistance),
-            configSlider("PubSimilarity", 0.01, 1.1, 0.01, lens[SimulationConfig] >> 'pubSimilarity,
-              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications)))),
-            configSlider("AuthorSimilarity", 0.01, 1.1, 0.01, lens[SimulationConfig] >> 'authorSimilarity,
-              Some(c => SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications))))
+
+            configSlider("PubSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
+              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }),
+            configSlider("AuthorSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
+              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }),
+
+            configSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
+            configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
+            configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance),
+
+            configSlider("Radius", 1, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radius)
           )
         )
       )

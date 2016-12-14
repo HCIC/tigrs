@@ -16,15 +16,14 @@ import tigrs.graph.Vertex
 
 import Math._
 
-case class GraphConfig(
+case class GraphProps(
   graph: DirectedGraph[Vertex],
-  dimensions: Vec2
-// simConfig: SimulationConfig,
-// hovered: Option[Vertex] = None,
-// highlightedVertices: Set[Vertex] = Set.empty
+  dimensions: Vec2,
+  simConfig: SimulationConfig,
+  visConfig: VisualizationConfig
 )
 
-object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
+object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
   import js.Dynamic.global
   val d3 = global.d3
 
@@ -47,7 +46,10 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
 
     val simulation = d3.forceSimulation()
-      .force("charge", d3.forceManyBody())
+      .force("center", d3.forceCenter())
+      .force("gravityx", d3.forceX())
+      .force("gravityy", d3.forceY())
+      .force("repel", d3.forceManyBody())
       .force("link", d3.forceLink())
 
     simulation.on("tick", (e: Event) => {
@@ -60,16 +62,13 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
           d.hovered = false
         }
 
-        val d3Vertex = simulation.find(d3.event.x, d3.event.y).asInstanceOf[D3V]
-        val vertex = d3Vertex.asInstanceOf[Vertex]
-        val mPos = Vec2(d3.event.x.asInstanceOf[Double], d3.event.y.asInstanceOf[Double])
-        val vPos = Vec2(d3Vertex.x.asInstanceOf[Double], d3Vertex.y.asInstanceOf[Double])
-        val distance = { val d = (mPos - vPos); sqrt(d.x * d.x + d.y * d.y) }
-        if (distance < 100) {
-          vertex.asInstanceOf[D3V].hovered = true
-          AppCircuit.dispatch(HoverVertex(vertex))
-        } else {
-          AppCircuit.dispatch(UnHoverVertex)
+        val d3Vertex = simulation.find(d3.event.x, d3.event.y, 100).asInstanceOf[js.UndefOr[D3V]].toOption
+        d3Vertex match {
+          case Some(v) =>
+            v.hovered = true
+            AppCircuit.dispatch(HoverVertex(v.asInstanceOf[Vertex]))
+          case None =>
+            AppCircuit.dispatch(UnHoverVertex)
         }
 
         updateVisualization($.props.runNow())
@@ -80,14 +79,31 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
       import p._
       import dimensions._
 
-      if (oldProps.isEmpty || p.dimensions != oldProps.get.dimensions) {
+      def newOrChanged(get: Props => AnyRef) = oldProps.isEmpty || get(p) != get(oldProps.get)
+
+      if (newOrChanged(_.simConfig)) {
+        simulation.force("gravityx").strength(simConfig.gravity)
+        simulation.force("gravityy").strength(simConfig.gravity)
+        simulation.force("repel").strength(-simConfig.repel)
+        simulation.force("link").distance(simConfig.linkDistance)
+        simulation.alpha(1).restart()
+      }
+
+      if (newOrChanged(_.visConfig)) {
+        updateVisualization(p)
+      }
+
+      if (newOrChanged(_.dimensions)) {
         canvas.attr("width", width).attr("height", height)
-        simulation
-          .force("center", d3.forceCenter(width / 2, height / 2))
+
+        simulation.force("center").x(width / 2).y(height / 2)
+        simulation.force("gravityx").x(width / 2)
+        simulation.force("gravityy").y(height / 2)
+
         simulation.alpha(0.01).restart()
       }
 
-      if (oldProps.isEmpty || oldProps.get.graph != p.graph) {
+      if (newOrChanged(_.graph)) {
 
         val vertexData = graph.vertices.toJSArray
         val edgeData = graph.edges.map(e => new D3E(e.in.asInstanceOf[D3V], e.out.asInstanceOf[D3V])).toJSArray
@@ -104,10 +120,13 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
 
     def updateVisualization(p: Props) {
       import p.dimensions._
+      import p.visConfig.radius
+
       context.clearRect(0, 0, width, height)
 
       // draw links
       context.strokeStyle = "#8F8F8F"
+      context.lineWidth = 1
       context.beginPath()
       simulation.force("link").links().asInstanceOf[js.Array[D3E]].foreach { (d: D3E) =>
         context.moveTo(d.source.x, d.source.y)
@@ -120,7 +139,7 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
         val hovered = d.hovered.getOrElse(false)
         context.moveTo(d.x, d.y)
         context.beginPath()
-        context.arc(d.x, d.y, 4.5, 0, 2 * Math.PI)
+        context.arc(d.x, d.y, radius, 0, 2 * Math.PI)
         context.fillStyle = d.asInstanceOf[Vertex] match {
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.AuthorSet => "#FF8A8E"
@@ -131,12 +150,14 @@ object GraphViewCanvas extends D3[GraphConfig]("GraphViewCanvas") {
           case _: graph.Keyword => "black"
         }
 
-        context.globalAlpha = if (hovered) 1.0 else 0.5
+        // context.globalAlpha = if (hovered) 1.0 else 0.5
         context.fill()
 
         if (hovered) {
-          context.arc(d.x, d.y, 5.5, 0, 2 * Math.PI)
+          context.beginPath()
+          context.arc(d.x, d.y, radius + 3, 0, 2 * Math.PI)
           context.strokeStyle = "black"
+          context.lineWidth = 2
           context.stroke()
         }
       }
