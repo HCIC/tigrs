@@ -33,15 +33,12 @@ package graph {
   case class VertexInfo(
     vertex: Vertex,
     @JSExport var x: js.UndefOr[Double] = js.undefined,
-    @JSExport var y: js.UndefOr[Double] = js.undefined,
-    @JSExport var hovered: Boolean = false,
-    @JSExport var highlighted: Boolean = false
+    @JSExport var y: js.UndefOr[Double] = js.undefined
   )
   case class EdgeInfo(
     @JSExport source: VertexInfo,
     @JSExport target: VertexInfo,
-    publish: Int,
-    @JSExport var highlighted: Boolean = false
+    publish: Int
   )
 }
 

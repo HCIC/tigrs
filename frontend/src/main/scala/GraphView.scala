@@ -13,6 +13,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import fdietze.scalajs.react.components._
 
 import graph._
+import collection.breakOut
 
 import Math._
 
@@ -30,7 +31,15 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
   class Backend($: Scope) extends D3Backend($) {
     lazy val canvas = d3.select(component).append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
-    var hovered = false
+
+    var hoveredVertex: Option[VertexInfo] = None
+    var highlightedVertices: Set[VertexInfo] = Set.empty
+    var highlightedEdges: Set[EdgeInfo] = Set.empty
+    var grayedVertices: Iterable[VertexInfo] = Nil
+    var grayedEdges: Iterable[EdgeInfo] = Nil
+
+    var normalVertices: Iterable[VertexInfo] = Nil
+    var normalEdges: Iterable[EdgeInfo] = Nil
 
     val simulation = d3.forceSimulation()
       .force("center", d3.forceCenter())
@@ -43,39 +52,49 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       updateVisualization($.props.runNow())
     })
 
+    def nodes = simulation.nodes().asInstanceOf[js.Array[VertexInfo]]
+    def links = simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]]
+
     override def init(p: Props) = Callback {
-      canvas.on("mousemove", { () =>
-        val p = $.props.runNow()
-        val graph = p.graph
+      canvas.on("mousemove", () => mouseMove($.props.runNow()))
+    }
 
-        simulation.nodes().asInstanceOf[js.Array[VertexInfo]].foreach { (v: VertexInfo) =>
-          v.hovered = false
-          v.highlighted = false
-        }
-        simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]].foreach { (e: EdgeInfo) =>
-          e.highlighted = false
-        }
+    def mouseMove(p: Props) {
+      val d3Vertex = simulation.find(d3.event.x, d3.event.y, 100).asInstanceOf[js.UndefOr[VertexInfo]].toOption
+      d3Vertex match {
+        case Some(v) =>
+          highlight(p, v)
+          AppCircuit.dispatch(HoverVertex(v.vertex))
+        case None =>
+          unHighlight(p)
+          AppCircuit.dispatch(UnHoverVertex)
+      }
 
-        val d3Vertex = simulation.find(d3.event.x, d3.event.y, 100).asInstanceOf[js.UndefOr[VertexInfo]].toOption
-        d3Vertex match {
-          case Some(v) =>
-            v.hovered = true
-            graph.neighbours(v.vertex).foreach { n =>
-              graph.vertexData(n).highlighted = true
-            }
-            graph.incidentEdges(v.vertex).foreach { e =>
-              graph.edgeData(e).highlighted = true
-            }
+      updateVisualization($.props.runNow())
+    }
 
-            AppCircuit.dispatch(HoverVertex(v.vertex))
-            hovered = true
-          case None =>
-            AppCircuit.dispatch(UnHoverVertex)
-            hovered = false
-        }
+    def highlight(p: Props, v: VertexInfo) {
+      import p.graph
 
-        updateVisualization($.props.runNow())
-      })
+      hoveredVertex = Some(v)
+      highlightedVertices = graph.neighbours(v.vertex).map(graph.vertexData)
+      highlightedEdges = graph.incidentEdges(v.vertex).map(graph.edgeData)
+      grayedVertices = graph.vertexData.values.filterNot(v => highlightedVertices(v) || (hoveredVertex contains v))
+      grayedEdges = graph.edgeData.values.filterNot(highlightedEdges)
+      normalVertices = Nil
+      normalEdges = Nil
+    }
+
+    def unHighlight(p: Props) {
+      import p.graph
+
+      hoveredVertex = None
+      highlightedVertices = Set.empty
+      highlightedEdges = Set.empty
+      grayedVertices = Nil
+      grayedEdges = Nil
+      normalVertices = nodes
+      normalEdges = links
     }
 
     override def update(p: Props, oldProps: Option[Props] = None) = Callback {
@@ -114,7 +133,13 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         simulation.nodes(vertexData)
         simulation.force("link").links(edgeData)
 
+        if (hoveredVertex.isDefined)
+          highlight(p, hoveredVertex.get)
+        else
+          unHighlight(p)
+
         simulation.alpha(1).restart()
+
       }
 
     }
@@ -125,101 +150,80 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
 
       context.clearRect(0, 0, width, height)
 
-      // draw nodes
-      if (hovered) {
-        context.lineWidth = 1
-        val (highlightedEdges, edges) = simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]].partition { (e: EdgeInfo) =>
-          e.highlighted
-        }
-
-        var hoveredVertex: VertexInfo = null
-        val (highlightedVertices, vertices) = simulation.nodes().asInstanceOf[js.Array[VertexInfo]].partition { (v: VertexInfo) =>
-          if (v.hovered) hoveredVertex = v
-          v.highlighted
-        }
-
-        edges.foreach { e =>
-          context.beginPath()
-          context.moveTo(e.source.x, e.source.y)
-          context.lineTo(e.target.x, e.target.y)
-          context.strokeStyle = "#DDDDDD"
-          context.stroke()
-        }
-
-        vertices.foreach { (v: VertexInfo) =>
-          context.moveTo(v.x, v.y)
-          context.beginPath()
-          context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
-          context.fillStyle = v.vertex match {
-            case _: graph.PublicationSet => "#E6F9FF"
-            case _: graph.AuthorSet => "#FFE6E6"
-          }
-
-          // context.globalAlpha = if (hovered) 1.0 else 0.5
-          context.fill()
-
-        }
-
-        highlightedEdges.foreach { e =>
-          context.beginPath()
-          context.moveTo(e.source.x, e.source.y)
-          context.lineTo(e.target.x, e.target.y)
-          context.strokeStyle = "black"
-          context.stroke()
-        }
-
-        highlightedVertices.foreach { (v: VertexInfo) =>
-          context.moveTo(v.x, v.y)
-          context.beginPath()
-          context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
-          context.fillStyle = v.vertex match {
-            case _: graph.PublicationSet => "#48D7FF"
-            case _: graph.AuthorSet => "#FF8A8E"
-          }
-
-          // context.globalAlpha = if (hovered) 1.0 else 0.5
-          context.fill()
-        }
-
-        context.moveTo(hoveredVertex.x, hoveredVertex.y)
+      context.strokeStyle = "#8F8F8F"
+      normalEdges.foreach { (e: EdgeInfo) =>
         context.beginPath()
-        context.arc(hoveredVertex.x, hoveredVertex.y, radius, 0, 2 * Math.PI)
-        context.fillStyle = hoveredVertex.vertex match {
+        context.lineWidth = 1
+        context.moveTo(e.source.x, e.source.y)
+        context.lineTo(e.target.x, e.target.y)
+        context.stroke()
+      }
+
+      normalVertices.foreach { (v: VertexInfo) =>
+        context.moveTo(v.x, v.y)
+        context.beginPath()
+        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.fillStyle = v.vertex match {
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.AuthorSet => "#FF8A8E"
         }
-
-        // context.globalAlpha = if (hovered) 1.0 else 0.5
         context.fill()
+      }
 
+      grayedEdges.foreach { e =>
         context.beginPath()
-        context.arc(hoveredVertex.x, hoveredVertex.y, radius + 3, 0, 2 * Math.PI)
+        context.moveTo(e.source.x, e.source.y)
+        context.lineTo(e.target.x, e.target.y)
+        context.strokeStyle = "#DDDDDD"
+        context.stroke()
+      }
+
+      grayedVertices.foreach { (v: VertexInfo) =>
+        context.moveTo(v.x, v.y)
+        context.beginPath()
+        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.fillStyle = v.vertex match {
+          case _: graph.PublicationSet => "#E6F9FF"
+          case _: graph.AuthorSet => "#FFE6E6"
+        }
+        context.fill()
+      }
+
+      highlightedEdges.foreach { e =>
+        context.beginPath()
+        context.moveTo(e.source.x, e.source.y)
+        context.lineTo(e.target.x, e.target.y)
+        context.strokeStyle = "black"
+        context.stroke()
+      }
+
+      highlightedVertices.foreach { (v: VertexInfo) =>
+        context.moveTo(v.x, v.y)
+        context.beginPath()
+        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.fillStyle = v.vertex match {
+          case _: graph.PublicationSet => "#48D7FF"
+          case _: graph.AuthorSet => "#FF8A8E"
+        }
+        context.fill()
+      }
+
+      hoveredVertex.foreach { v =>
+        context.moveTo(v.x, v.y)
+        context.beginPath()
+        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.fillStyle = v.vertex match {
+          case _: graph.PublicationSet => "#48D7FF"
+          case _: graph.AuthorSet => "#FF8A8E"
+        }
+        context.fill()
+        context.beginPath()
+        context.arc(v.x, v.y, radius + 3, 0, 2 * Math.PI)
         context.strokeStyle = "black"
         context.lineWidth = 2
         context.stroke()
-
-      } else { // not hovered
-        // draw links
-        context.strokeStyle = "#8F8F8F"
-        simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]].foreach { (e: EdgeInfo) =>
-          context.beginPath()
-          context.lineWidth = 1
-          context.moveTo(e.source.x, e.source.y)
-          context.lineTo(e.target.x, e.target.y)
-          context.stroke()
-        }
-
-        simulation.nodes().asInstanceOf[js.Array[VertexInfo]].foreach { (v: VertexInfo) =>
-          context.moveTo(v.x, v.y)
-          context.beginPath()
-          context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
-          context.fillStyle = v.vertex match {
-            case _: graph.PublicationSet => "#48D7FF"
-            case _: graph.AuthorSet => "#FF8A8E"
-          }
-          context.fill()
-        }
       }
+
     }
 
   }
