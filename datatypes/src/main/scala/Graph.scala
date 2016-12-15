@@ -33,12 +33,13 @@ package graph {
   case class VertexInfo(
     vertex: Vertex,
     @JSExport var x: js.UndefOr[Double] = js.undefined,
-    @JSExport var y: js.UndefOr[Double] = js.undefined
+    @JSExport var y: js.UndefOr[Double] = js.undefined,
+    weight: Double
   )
   case class EdgeInfo(
     @JSExport source: VertexInfo,
     @JSExport target: VertexInfo,
-    publish: Int
+    weight: Double
   )
 }
 
@@ -103,8 +104,25 @@ package object graph {
     val vertices: Set[Vertex] = /*time("vertices")*/ { pubSets ++ authorSets }
     val aToAs: Map[A, AuthorSet] = /*time("aToAs")*/ { authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut) }
     val edges: Set[Edge[Vertex]] = /*time("edges")*/ { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Set[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
-    val vertexData: Map[Vertex, VertexInfo] = vertices.map { v => v -> VertexInfo(v) }(breakOut)
-    val edgeData: Map[Edge[Vertex], EdgeInfo] = edges.map { case e @ Edge(ps: PublicationSet, as: AuthorSet) => e -> EdgeInfo(vertexData(ps), vertexData(as), ps.ps.size * as.as.size) }(breakOut)
+    val vertexData: Map[Vertex, VertexInfo] = vertices.map { v =>
+      var weight = 0.0
+      v match {
+        case as: AuthorSet =>
+          for (a <- as.as; p <- aToP(a))
+            weight += 1.0 / p.authors.size
+        case ps: PublicationSet =>
+          weight = ps.ps.size
+      }
+      v -> VertexInfo(v, weight = weight)
+    }(breakOut)
+    val edgeData: Map[Edge[Vertex], EdgeInfo] = edges.map {
+      case e @ Edge(ps: PublicationSet, as: AuthorSet) =>
+        var weight = 0.0
+        for (a <- as.as; p <- ps.ps if p.authors contains a)
+          weight += 1.0 / p.authors.size
+
+        e -> EdgeInfo(vertexData(ps), vertexData(as), weight)
+    }(breakOut)
 
     DirectedGraphData(vertices, edges, vertexData, edgeData)
   }

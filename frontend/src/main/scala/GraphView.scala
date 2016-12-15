@@ -146,23 +146,26 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
 
     def updateVisualization(p: Props) {
       import p.dimensions._
-      import p.visConfig.radius
+      import p.visConfig._
+
+      def r(v: VertexInfo) = radiusOffset + radiusFactor * pow(v.weight, radiusExponent)
+      def w(e: EdgeInfo) = widthOffset + widthFactor * pow(e.weight - 1, widthExponent)
 
       context.clearRect(0, 0, width, height)
 
       context.strokeStyle = "#8F8F8F"
       normalEdges.foreach { (e: EdgeInfo) =>
         context.beginPath()
-        context.lineWidth = 1
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
+        context.lineWidth = w(e)
         context.stroke()
       }
 
       normalVertices.foreach { (v: VertexInfo) =>
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.arc(v.x, v.y, r(v), 0, 2 * Math.PI)
         context.fillStyle = v.vertex match {
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.AuthorSet => "#FF8A8E"
@@ -170,18 +173,19 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         context.fill()
       }
 
+      context.strokeStyle = "#DDDDDD"
       grayedEdges.foreach { e =>
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
-        context.strokeStyle = "#DDDDDD"
+        context.lineWidth = w(e)
         context.stroke()
       }
 
       grayedVertices.foreach { (v: VertexInfo) =>
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.arc(v.x, v.y, r(v), 0, 2 * Math.PI)
         context.fillStyle = v.vertex match {
           case _: graph.PublicationSet => "#E6F9FF"
           case _: graph.AuthorSet => "#FFE6E6"
@@ -189,18 +193,19 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         context.fill()
       }
 
+      context.strokeStyle = "black"
       highlightedEdges.foreach { e =>
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
-        context.strokeStyle = "black"
+        context.lineWidth = w(e)
         context.stroke()
       }
 
       highlightedVertices.foreach { (v: VertexInfo) =>
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.arc(v.x, v.y, r(v), 0, 2 * Math.PI)
         context.fillStyle = v.vertex match {
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.AuthorSet => "#FF8A8E"
@@ -211,14 +216,14 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       hoveredVertex.foreach { v =>
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+        context.arc(v.x, v.y, r(v), 0, 2 * Math.PI)
         context.fillStyle = v.vertex match {
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.AuthorSet => "#FF8A8E"
         }
         context.fill()
         context.beginPath()
-        context.arc(v.x, v.y, radius + 3, 0, 2 * Math.PI)
+        context.arc(v.x, v.y, r(v) + 3, 0, 2 * Math.PI)
         context.strokeStyle = "black"
         context.lineWidth = 2
         context.stroke()
