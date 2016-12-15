@@ -1,7 +1,9 @@
 package tigrs
 
-import pharg.{DirectedGraph, Edge}
+import pharg._
 import collection.{breakOut, mutable, immutable}
+import scalajs.js
+import scalajs.js.annotation._
 
 package graph {
   sealed trait Vertex
@@ -27,6 +29,20 @@ package graph {
 
     override def hashCode = ids.hashCode
   }
+
+  case class VertexInfo(
+    vertex: Vertex,
+    @JSExport var x: js.UndefOr[Double] = js.undefined,
+    @JSExport var y: js.UndefOr[Double] = js.undefined,
+    @JSExport var hovered: Boolean = false,
+    @JSExport var highlighted: Boolean = false
+  )
+  case class EdgeInfo(
+    @JSExport source: VertexInfo,
+    @JSExport target: VertexInfo,
+    publish: Int,
+    @JSExport var highlighted: Boolean = false
+  )
 }
 
 package object graph {
@@ -40,7 +56,7 @@ package object graph {
     result
   }
 
-  def mergedGraph(pubThreshold: Double, authorThreshold: Double)(publications: Seq[tigrs.Publication]): DirectedGraph[Vertex] = {
+  def mergedGraph(pubThreshold: Double, authorThreshold: Double)(publications: Seq[tigrs.Publication]): DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = {
     type P = tigrs.Publication
     type A = tigrs.Author
 
@@ -90,7 +106,9 @@ package object graph {
     val vertices: Set[Vertex] = /*time("vertices")*/ { pubSets ++ authorSets }
     val aToAs: Map[A, AuthorSet] = /*time("aToAs")*/ { authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut) }
     val edges: Set[Edge[Vertex]] = /*time("edges")*/ { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Set[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
+    val vertexData: Map[Vertex, VertexInfo] = vertices.map { v => v -> VertexInfo(v) }(breakOut)
+    val edgeData: Map[Edge[Vertex], EdgeInfo] = edges.map { case e @ Edge(ps: PublicationSet, as: AuthorSet) => e -> EdgeInfo(vertexData(ps), vertexData(as), ps.ps.size * as.as.size) }(breakOut)
 
-    DirectedGraph(vertices, edges)
+    DirectedGraphData(vertices, edges, vertexData, edgeData)
   }
 }

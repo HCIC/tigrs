@@ -15,6 +15,8 @@ import cats.Monoid
 import scala.concurrent.ExecutionContext.Implicits.global
 import concurrent.Future
 
+import graph._
+
 case class RootModel(
   publicationVisualization: PublicationVisualization,
   hoveredVertex: Option[graph.Vertex] = None
@@ -45,7 +47,7 @@ case class PublicationVisualization(
   ikzs: Seq[String] = Nil,
   ikz: Option[String] = None,
   publications: Seq[Publication] = Nil,
-  displayGraph: DirectedGraph[tigrs.graph.Vertex] = Monoid[DirectedGraph[tigrs.graph.Vertex]].empty,
+  displayGraph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = DirectedGraphData[Vertex, VertexInfo, EdgeInfo](Set.empty, Set.empty, Map.empty, Map.empty),
   dimensions: Vec2 = Vec2(100, 100),
   graphConfig: GraphConfig = GraphConfig(),
   simConfig: SimulationConfig = SimulationConfig(),
@@ -56,7 +58,7 @@ case class PublicationVisualization(
 
 case class HoverVertex(v: graph.Vertex) extends Action
 case object UnHoverVertex extends Action
-case class SetDisplayGraph(graph: DirectedGraph[tigrs.graph.Vertex]) extends Action
+case class SetDisplayGraph(graph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo]) extends Action
 case class SetDimensions(dimensions: Vec2) extends Action
 case class DownloadPublications(url: String) extends Action
 case class SetPublications(ps: Seq[Publication]) extends Action

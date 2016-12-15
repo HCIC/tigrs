@@ -12,12 +12,12 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import fdietze.scalajs.react.components._
 
-import tigrs.graph.Vertex
+import graph._
 
 import Math._
 
 case class GraphProps(
-  graph: DirectedGraph[Vertex],
+  graph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo],
   dimensions: Vec2,
   simConfig: SimulationConfig,
   visConfig: VisualizationConfig
@@ -26,21 +26,6 @@ case class GraphProps(
 object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
   import js.Dynamic.global
   val d3 = global.d3
-
-  @js.native
-  trait D3V extends js.Object {
-    var x: js.UndefOr[Double] = js.native
-    var y: js.UndefOr[Double] = js.native
-    var hovered: js.UndefOr[Boolean] = js.native
-    var highlighted: js.UndefOr[Boolean] = js.undefined
-  }
-
-  @ScalaJSDefined
-  class D3E(
-    val source: D3V,
-    val target: D3V,
-    var highlighted: js.UndefOr[Boolean] = js.undefined
-  ) extends js.Object
 
   class Backend($: Scope) extends D3Backend($) {
     lazy val canvas = d3.select(component).append("canvas")
@@ -63,26 +48,26 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         val p = $.props.runNow()
         val graph = p.graph
 
-        simulation.nodes().asInstanceOf[js.Array[D3V]].foreach { (v: D3V) =>
+        simulation.nodes().asInstanceOf[js.Array[VertexInfo]].foreach { (v: VertexInfo) =>
           v.hovered = false
           v.highlighted = false
         }
-        simulation.force("link").links().asInstanceOf[js.Array[D3E]].foreach { (e: D3E) =>
+        simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]].foreach { (e: EdgeInfo) =>
           e.highlighted = false
         }
 
-        val d3Vertex = simulation.find(d3.event.x, d3.event.y, 100).asInstanceOf[js.UndefOr[D3V]].toOption
+        val d3Vertex = simulation.find(d3.event.x, d3.event.y, 100).asInstanceOf[js.UndefOr[VertexInfo]].toOption
         d3Vertex match {
           case Some(v) =>
             v.hovered = true
-            graph.neighbours(v.asInstanceOf[Vertex]).foreach { n =>
-              n.asInstanceOf[D3V].highlighted = true
+            graph.neighbours(v.vertex).foreach { n =>
+              graph.vertexData(n).highlighted = true
             }
-            graph.incidentEdges(v.asInstanceOf[Vertex]).foreach { e =>
-              e.asInstanceOf[js.Dynamic].d3e.highlighted = true
+            graph.incidentEdges(v.vertex).foreach { e =>
+              graph.edgeData(e).highlighted = true
             }
 
-            AppCircuit.dispatch(HoverVertex(v.asInstanceOf[Vertex]))
+            AppCircuit.dispatch(HoverVertex(v.vertex))
             hovered = true
           case None =>
             AppCircuit.dispatch(UnHoverVertex)
@@ -123,17 +108,11 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
 
       if (newOrChanged(_.graph)) {
 
-        val vertexData = graph.vertices.toJSArray
-        val edgeData = graph.edges.map { e =>
-          val d3e = new D3E(e.in.asInstanceOf[D3V], e.out.asInstanceOf[D3V])
-          e.asInstanceOf[js.Dynamic].d3e = d3e
-          d3e
-        }.toJSArray
+        val vertexData = graph.vertices.map(graph.vertexData).toJSArray
+        val edgeData = graph.edges.map(graph.edgeData).toJSArray
 
-        simulation
-          .nodes(vertexData.asInstanceOf[js.Array[D3V]])
-        simulation.force("link")
-          .links(edgeData)
+        simulation.nodes(vertexData)
+        simulation.force("link").links(edgeData)
 
         simulation.alpha(1).restart()
       }
@@ -149,14 +128,14 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       // draw nodes
       if (hovered) {
         context.lineWidth = 1
-        val (highlightedEdges, edges) = simulation.force("link").links().asInstanceOf[js.Array[D3E]].partition { (e: D3E) =>
-          e.highlighted.getOrElse(false)
+        val (highlightedEdges, edges) = simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]].partition { (e: EdgeInfo) =>
+          e.highlighted
         }
 
-        var hoveredVertex: D3V = null
-        val (highlightedVertices, vertices) = simulation.nodes().asInstanceOf[js.Array[D3V]].partition { (v: D3V) =>
-          if (v.hovered.getOrElse(false)) hoveredVertex = v
-          v.highlighted.getOrElse(false)
+        var hoveredVertex: VertexInfo = null
+        val (highlightedVertices, vertices) = simulation.nodes().asInstanceOf[js.Array[VertexInfo]].partition { (v: VertexInfo) =>
+          if (v.hovered) hoveredVertex = v
+          v.highlighted
         }
 
         edges.foreach { e =>
@@ -167,11 +146,11 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
           context.stroke()
         }
 
-        vertices.foreach { (v: D3V) =>
+        vertices.foreach { (v: VertexInfo) =>
           context.moveTo(v.x, v.y)
           context.beginPath()
           context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
-          context.fillStyle = v.asInstanceOf[Vertex] match {
+          context.fillStyle = v.vertex match {
             case _: graph.PublicationSet => "#E6F9FF"
             case _: graph.AuthorSet => "#FFE6E6"
           }
@@ -189,11 +168,11 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
           context.stroke()
         }
 
-        highlightedVertices.foreach { (v: D3V) =>
+        highlightedVertices.foreach { (v: VertexInfo) =>
           context.moveTo(v.x, v.y)
           context.beginPath()
           context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
-          context.fillStyle = v.asInstanceOf[Vertex] match {
+          context.fillStyle = v.vertex match {
             case _: graph.PublicationSet => "#48D7FF"
             case _: graph.AuthorSet => "#FF8A8E"
           }
@@ -205,7 +184,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         context.moveTo(hoveredVertex.x, hoveredVertex.y)
         context.beginPath()
         context.arc(hoveredVertex.x, hoveredVertex.y, radius, 0, 2 * Math.PI)
-        context.fillStyle = hoveredVertex.asInstanceOf[Vertex] match {
+        context.fillStyle = hoveredVertex.vertex match {
           case _: graph.PublicationSet => "#48D7FF"
           case _: graph.AuthorSet => "#FF8A8E"
         }
@@ -222,19 +201,19 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       } else { // not hovered
         // draw links
         context.strokeStyle = "#8F8F8F"
-        context.lineWidth = 1
-        context.beginPath()
-        simulation.force("link").links().asInstanceOf[js.Array[D3E]].foreach { (d: D3E) =>
-          context.moveTo(d.source.x, d.source.y)
-          context.lineTo(d.target.x, d.target.y)
-        }
-        context.stroke()
-
-        simulation.nodes().asInstanceOf[js.Array[D3V]].foreach { (d: D3V) =>
-          context.moveTo(d.x, d.y)
+        simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]].foreach { (e: EdgeInfo) =>
           context.beginPath()
-          context.arc(d.x, d.y, radius, 0, 2 * Math.PI)
-          context.fillStyle = d.asInstanceOf[Vertex] match {
+          context.lineWidth = 1
+          context.moveTo(e.source.x, e.source.y)
+          context.lineTo(e.target.x, e.target.y)
+          context.stroke()
+        }
+
+        simulation.nodes().asInstanceOf[js.Array[VertexInfo]].foreach { (v: VertexInfo) =>
+          context.moveTo(v.x, v.y)
+          context.beginPath()
+          context.arc(v.x, v.y, radius, 0, 2 * Math.PI)
+          context.fillStyle = v.vertex match {
             case _: graph.PublicationSet => "#48D7FF"
             case _: graph.AuthorSet => "#FF8A8E"
           }
