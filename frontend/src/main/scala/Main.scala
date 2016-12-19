@@ -164,9 +164,20 @@ object Visualization {
             ),
 
             configSlider("PubSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
-              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }),
+              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }),
             configSlider("AuthorSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
-              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }),
+              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }),
+            <.div(
+              ^.display := "flex",
+              ^.justifyContent := "space-between",
+              s"fractionalCounting: ",
+              <.input(^.`type` := "checkbox", ^.checked := vis.graphConfig.fractionalCounting,
+                ^.onChange ==> ((e: ReactEventI) => {
+                  val checked = e.target.checked
+                  Future { SetDisplayGraph(tigrs.graph.mergedGraph(vis.graphConfig.pubSimilarity, vis.graphConfig.authorSimilarity, checked)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }
+                  proxy.dispatchCB(SetConfig(vis.graphConfig.copy(fractionalCounting = checked)))
+                }))
+            ),
 
             configSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
             configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),

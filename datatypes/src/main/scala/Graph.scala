@@ -54,9 +54,10 @@ package object graph {
     result
   }
 
-  def mergedGraph(pubThreshold: Double, authorThreshold: Double)(publications: Seq[tigrs.Publication]): DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = {
+  def mergedGraph(pubThreshold: Double, authorThreshold: Double, fractionalCounting: Boolean = true)(publications: Seq[tigrs.Publication]): DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = {
     type P = tigrs.Publication
     type A = tigrs.Author
+    println(s"fract: $fractionalCounting")
 
     val authors: Set[tigrs.Author] = /*time("authors")*/ { publications.flatMap(_.authors)(breakOut) }
 
@@ -118,8 +119,13 @@ package object graph {
     val edgeData: Map[Edge[Vertex], EdgeInfo] = edges.map {
       case e @ Edge(ps: PublicationSet, as: AuthorSet) =>
         var weight = 0.0
-        for (a <- as.as; p <- ps.ps if p.authors contains a)
-          weight += 1.0 / p.authors.size
+        if (fractionalCounting) {
+          for (a <- as.as; p <- ps.ps if p.authors contains a)
+            weight += 1.0 / p.authors.size
+        } else {
+          for (a <- as.as; p <- ps.ps if p.authors contains a)
+            weight += 1.0
+        }
 
         e -> EdgeInfo(vertexData(ps), vertexData(as), weight)
     }(breakOut)

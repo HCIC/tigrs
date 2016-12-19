@@ -30,7 +30,8 @@ sealed trait Config
 
 case class GraphConfig(
   pubSimilarity: Double = 1.0,
-  authorSimilarity: Double = 1.0
+  authorSimilarity: Double = 1.0,
+  fractionalCounting: Boolean = true
 ) extends Config
 
 case class SimulationConfig(
