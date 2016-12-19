@@ -115,7 +115,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         simulation.force("gravityx").strength(simConfig.gravity)
         simulation.force("gravityy").strength(simConfig.gravity)
         simulation.force("repel").strength(-simConfig.repel)
-        simulation.force("link").distance(simConfig.linkDistance)
+        simulation.force("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
         simulation.alpha(1).restart()
       }
 
