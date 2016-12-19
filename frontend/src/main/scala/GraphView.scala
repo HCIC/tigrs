@@ -149,7 +149,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       import p.visConfig._
 
       def r(v: VertexInfo) = radiusOffset + radiusFactor * pow(v.weight, radiusExponent)
-      def w(e: EdgeInfo) = widthOffset + widthFactor * pow(e.weight - 1, widthExponent)
+      def w(e: EdgeInfo) = widthOffset + widthFactor * pow(e.weight, widthExponent)
 
       context.clearRect(0, 0, width, height)
 
