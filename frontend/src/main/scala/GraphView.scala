@@ -30,7 +30,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
 
   val hoverDistance = 30
   val collisionGap = 2
-  val hoverBorderWidth = 3
+  val hoverBorderWidth = 5
 
   class Backend($: Scope) extends D3Backend($) {
     lazy val canvas = d3.select(component).append("canvas")
@@ -237,7 +237,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         context.fill()
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig) + hoverBorderWidth / 2.0, 0, 2 * Math.PI)
-        context.strokeStyle = "black"
+        context.strokeStyle = "rgba(0,0,0,0.2)"
         context.lineWidth = hoverBorderWidth
         context.stroke()
       }
