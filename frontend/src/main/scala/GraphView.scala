@@ -57,6 +57,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
 
     override def init(p: Props) = Callback {
       canvas.on("mousemove", () => mouseMove($.props.runNow()))
+      canvas.on("mouseout", () => mouseOut($.props.runNow()))
     }
 
     def mouseMove(p: Props) {
@@ -70,6 +71,12 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
           AppCircuit.dispatch(UnHoverVertex)
       }
 
+      updateVisualization($.props.runNow())
+    }
+
+    def mouseOut(p: Props) {
+      unHighlight(p)
+      AppCircuit.dispatch(UnHoverVertex)
       updateVisualization($.props.runNow())
     }
 
