@@ -28,6 +28,10 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
   import js.Dynamic.global
   val d3 = global.d3
 
+  val hoverDistance = 30
+  val collisionGap = 2
+  val hoverBorderWidth = 3
+
   class Backend($: Scope) extends D3Backend($) {
     lazy val canvas = d3.select(component).append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
@@ -62,7 +66,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
     }
 
     def mouseMove(p: Props) {
-      val d3Vertex = simulation.find(d3.event.x, d3.event.y, 20).asInstanceOf[js.UndefOr[VertexInfo]].toOption
+      val d3Vertex = simulation.find(d3.event.x, d3.event.y, hoverDistance).asInstanceOf[js.UndefOr[VertexInfo]].toOption
       d3Vertex match {
         case Some(v) =>
           highlight(p, v)
@@ -120,7 +124,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       }
 
       if (newOrChanged(_.visConfig)) {
-        simulation.force("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig))
+        simulation.force("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
         simulation.alpha(0.1).restart()
       }
 
@@ -232,9 +236,9 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         }
         context.fill()
         context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig) + 1, 0, 2 * Math.PI)
+        context.arc(v.x, v.y, vertexRadius(v, visConfig) + hoverBorderWidth / 2.0, 0, 2 * Math.PI)
         context.strokeStyle = "black"
-        context.lineWidth = 2
+        context.lineWidth = hoverBorderWidth
         context.stroke()
       }
 
