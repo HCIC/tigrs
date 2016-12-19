@@ -237,7 +237,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         context.fill()
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig) + hoverBorderWidth / 2.0, 0, 2 * Math.PI)
-        context.strokeStyle = "rgba(0,0,0,0.2)"
+        context.strokeStyle = "rgba(200,200,200, 0.7)"
         context.lineWidth = hoverBorderWidth
         context.stroke()
       }
