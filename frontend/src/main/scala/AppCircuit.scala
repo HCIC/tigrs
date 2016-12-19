@@ -41,11 +41,11 @@ case class SimulationConfig(
 
 case class VisualizationConfig(
   radiusOffset: Double = 1.0,
-  radiusFactor: Double = 1.0,
-  radiusExponent: Double = 1.0,
-  widthOffset: Double = 1.0,
-  widthFactor: Double = 1.0,
-  widthExponent: Double = 1.0
+  radiusFactor: Double = 1.8,
+  radiusExponent: Double = 0.608,
+  widthOffset: Double = 0.1,
+  widthFactor: Double = 0.7,
+  widthExponent: Double = 1.184
 ) extends Config
 
 case class PublicationVisualization(

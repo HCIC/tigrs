@@ -172,11 +172,11 @@ object Visualization {
             configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
             configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance),
 
-            configSlider("RadiusOffset", 1, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
-            configSlider("RadiusFactor", 1, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
+            configSlider("RadiusOffset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
+            configSlider("RadiusFactor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
             configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
-            configSlider("WidthOffset", 1, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
-            configSlider("WidthFactor", 1, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
+            configSlider("WidthOffset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
+            configSlider("WidthFactor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
             configSlider("WidthExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent)
           )
         )

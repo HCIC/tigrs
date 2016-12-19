@@ -62,7 +62,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
     }
 
     def mouseMove(p: Props) {
-      val d3Vertex = simulation.find(d3.event.x, d3.event.y, 100).asInstanceOf[js.UndefOr[VertexInfo]].toOption
+      val d3Vertex = simulation.find(d3.event.x, d3.event.y, 20).asInstanceOf[js.UndefOr[VertexInfo]].toOption
       d3Vertex match {
         case Some(v) =>
           highlight(p, v)
