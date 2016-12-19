@@ -124,6 +124,8 @@ object Visualization {
       )
     }.build
 
+  // val ikzSelector = ReactComponentB[]
+
   val configWidget = ReactComponentB[ModelProxy[RootModel]]("configWidget")
     .render_P { proxy =>
       val model = proxy.value
@@ -184,7 +186,7 @@ object Visualization {
             configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance),
 
             configSlider("RadiusOffset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
-            configSlider("RadiusFactor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
+            configSlider("RadiusFactor", 0, 200, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
             configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
             configSlider("WidthOffset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
             configSlider("WidthFactor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),

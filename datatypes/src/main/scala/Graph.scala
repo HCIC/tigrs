@@ -57,7 +57,6 @@ package object graph {
   def mergedGraph(pubThreshold: Double, authorThreshold: Double, fractionalCounting: Boolean = true)(publications: Seq[tigrs.Publication]): DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = {
     type P = tigrs.Publication
     type A = tigrs.Author
-    println(s"fract: $fractionalCounting")
 
     val authors: Set[tigrs.Author] = /*time("authors")*/ { publications.flatMap(_.authors)(breakOut) }
 
@@ -105,17 +104,37 @@ package object graph {
     val vertices: Set[Vertex] = /*time("vertices")*/ { pubSets ++ authorSets }
     val aToAs: Map[A, AuthorSet] = /*time("aToAs")*/ { authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut) }
     val edges: Set[Edge[Vertex]] = /*time("edges")*/ { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Set[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
-    val vertexData: Map[Vertex, VertexInfo] = vertices.map { v =>
+
+    var maxAuthorWeight = 0.0
+    var minAuthorWeight = Double.PositiveInfinity
+    var maxPublicationWeight = 0.0
+    var minPublicationWeight = Double.PositiveInfinity
+    val vertexWeights: Map[Vertex, Double] = vertices.map { v =>
       var weight = 0.0
       v match {
         case as: AuthorSet =>
-          for (a <- as.as; p <- aToP(a))
-            weight += 1.0 / p.authors.size
+          if (fractionalCounting) {
+            for (a <- as.as; p <- aToP(a))
+              weight += 1.0 / p.authors.size
+          } else {
+            for (a <- as.as)
+              weight += aToP(a).size
+          }
+          if (maxAuthorWeight < weight) maxAuthorWeight = weight
+          if (minAuthorWeight > weight) minAuthorWeight = weight
         case ps: PublicationSet =>
           weight = ps.ps.size
+          if (maxPublicationWeight < weight) maxPublicationWeight = weight
+          if (minPublicationWeight > weight) minPublicationWeight = weight
       }
-      v -> VertexInfo(v, weight = weight)
+      v -> weight
     }(breakOut)
+
+    val vertexData: Map[Vertex, VertexInfo] = vertexWeights.map {
+      case (v: AuthorSet, weight) => v -> VertexInfo(v, weight = (weight - minAuthorWeight) / (maxAuthorWeight - minAuthorWeight))
+      case (v: PublicationSet, weight) => v -> VertexInfo(v, weight = weight - 1)
+    } // normalized
+
     val edgeData: Map[Edge[Vertex], EdgeInfo] = edges.map {
       case e @ Edge(ps: PublicationSet, as: AuthorSet) =>
         var weight = 0.0
