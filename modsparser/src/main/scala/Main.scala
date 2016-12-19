@@ -58,6 +58,8 @@ object Main extends App {
     }
   }.seq
 
+  def filterByIkz(publications: Seq[tigrs.Publication], ikz: String): Seq[tigrs.Publication] = publications.filter(_.owner.map(_.ikz).toSeq.flatten contains ikz)
+
   val publications = {
     val pubs = parsePublications
     println("removing duplicates")
@@ -70,31 +72,10 @@ object Main extends App {
   val ikzs: Seq[String] = publications.flatMap(_.owner.toSeq.flatMap(_.ikz)).distinct
   pickleIkzListIntoFile(ikzs, "data/fakall.ikzlist.boo")
   for ((ikz, i) <- ikzs.zipWithIndex) {
-    pickleIntoFile(graph.filterByIkz(publications, ikz), s"data/fakall.ikz.$ikz.boo")
+    pickleIntoFile(filterByIkz(publications, ikz), s"data/fakall.ikz.$ikz.boo")
     print(s"institute: $i / ${ikzs.size}       \r")
   }
   println()
-  // pickleIntoFile(graph.pubGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.boo")
-  // pickleIntoFile(graph.authorGraph(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.graph.author.boo")
-  // pickleIntoFile(graph.pubCliqueGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquegraph.byauthor.boo")
-  // pickleIntoFile(graph.pubCliqueMergedGraphByAuthor(graph.filterByIkz(publications, "080025")), "data/fakall.ikz.080025.cliquemergedgraph.byauthor.boo")
-
-  // // 11(1.1) means no merging
-  // val combinations = (for (pubThreshold <- 1 to 11; authorThreshold <- 1 to 11) yield { (pubThreshold / 10.0, authorThreshold / 10.0) }).toSeq
-  // var done = 0
-  // val max = combinations.size
-  // println("filtering...")
-  // val filtered = graph.filterByIkz(publications, "080025")
-  // println("generating merged graphs...")
-  // print(s"\rdone: 0/$max   ")
-  // combinations.foreach {
-  //   case (pubThreshold, authorThreshold) =>
-  //     val g = graph.pubCliqueMergedGraph(filtered, pubThreshold, authorThreshold)
-  //     pickleIntoFile(g, f"data/fakall.ikz.080013.cliquemergedgraph_${pubThreshold}%.1f_${authorThreshold}%.1f${".boo"}")
-  //     done += 1
-  //     print(s"\rdone: $done/$max   ")
-  // }
-  // println()
 
   // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
   // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")
@@ -104,7 +85,6 @@ object Main extends App {
 
   def pickleIntoFile(data: Seq[Publication], file: String) { writeBufToFile(Pickle.intoBytes(data), file) }
   def pickleIkzListIntoFile(data: Seq[String], file: String) { writeBufToFile(Pickle.intoBytes(data), file) }
-  def pickleIntoFile(data: pharg.DirectedGraph[tigrs.graph.Vertex], file: String) { writeBufToFile(Pickle.intoBytes(data), file) }
 
   def writeBufToFile(buf: java.nio.ByteBuffer, file: String) {
     import java.io.File

@@ -4,12 +4,14 @@ echo "preparing data..."
 echo "downloading..."
 wget -nv --timestamping -i data-urls -P data
 
-echo "transforming and compressing..."
 cd data
+    echo "transforming..."
     make
+    echo "compressing..."
+    zopfli fakall.ikz.*.boo
 cd ..
 
 ls -lh data
 
 mkdir -p out/data
-cp data/fakall.boo.gz out/data
+cp data/*.boo.gz out/data

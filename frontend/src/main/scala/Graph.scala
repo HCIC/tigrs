@@ -44,8 +44,6 @@ package graph {
 }
 
 package object graph {
-  def filterByIkz(publications: Seq[tigrs.Publication], ikz: String): Seq[tigrs.Publication] = publications.filter(_.owner.map(_.ikz).toSeq.flatten contains ikz)
-
   def time[T](name: String)(code: => T): T = {
     val start = System.nanoTime
     val result: T = code
