@@ -54,7 +54,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       .force("collision", d3.forceCollide())
 
     simulation.on("tick", (e: Event) => {
-      updateVisualization($.props.runNow())
+      draw($.props.runNow())
     })
 
     def nodes = simulation.nodes().asInstanceOf[js.Array[VertexInfo]]
@@ -63,10 +63,19 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
     override def init(p: Props) = Callback {
       canvas.on("mousemove", () => mouseMove($.props.runNow()))
       canvas.on("mouseout", () => mouseOut($.props.runNow()))
+      canvas.call(d3.zoom().on("zoom", () => zoomed($.props.runNow())))
+    }
+
+    def zoomed(p: Props) {
+      import p.dimensions._
+
+      d3.zoom().transform(canvas, d3.event.transform)
+      draw(p)
     }
 
     def mouseMove(p: Props) {
-      val d3Vertex = simulation.find(d3.event.x, d3.event.y, hoverDistance).asInstanceOf[js.UndefOr[VertexInfo]].toOption
+      val t = d3.zoomTransform(canvas.node())
+      val d3Vertex = simulation.find(t.invertX(d3.event.x), t.invertY(d3.event.y), hoverDistance).asInstanceOf[js.UndefOr[VertexInfo]].toOption
       d3Vertex match {
         case Some(v) =>
           highlight(p, v)
@@ -76,13 +85,13 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
           AppCircuit.dispatch(UnHoverVertex)
       }
 
-      updateVisualization($.props.runNow())
+      draw($.props.runNow())
     }
 
     def mouseOut(p: Props) {
       unHighlight(p)
       AppCircuit.dispatch(UnHoverVertex)
-      updateVisualization($.props.runNow())
+      draw($.props.runNow())
     }
 
     def highlight(p: Props, v: VertexInfo) {
@@ -160,11 +169,16 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
     def vertexRadius(v: VertexInfo, c: VisualizationConfig) = c.radiusOffset + c.radiusFactor * pow(v.weight, c.radiusExponent)
     def edgeWidth(e: EdgeInfo, c: VisualizationConfig) = c.widthOffset + c.widthFactor * pow(e.weight, c.widthExponent)
 
-    def updateVisualization(p: Props) {
+    def draw(p: Props) {
       import p.dimensions._
       import p.visConfig
 
+      context.save()
       context.clearRect(0, 0, width, height)
+
+      val transform = d3.zoomTransform(canvas.node())
+      context.translate(transform.x, transform.y)
+      context.scale(transform.k, transform.k)
 
       context.strokeStyle = "#8F8F8F"
       normalEdges.foreach { (e: EdgeInfo) =>
@@ -242,6 +256,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         context.stroke()
       }
 
+      context.restore()
     }
 
   }
