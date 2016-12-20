@@ -9,6 +9,7 @@ cd data
     make
     echo "compressing..."
     zopfli fakall.ikz.*.boo
+    zopfli fakall.ikzlist.boo
 cd ..
 
 ls -lh data
