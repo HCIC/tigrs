@@ -15,6 +15,8 @@ import cats.Monoid
 import scala.concurrent.ExecutionContext.Implicits.global
 import concurrent.Future
 
+import collection.breakOut
+
 import graph._
 
 case class RootModel(
@@ -50,8 +52,8 @@ case class VisualizationConfig(
 ) extends Config
 
 case class PublicationVisualization(
-  ikzs: Seq[String] = Nil,
-  ikz: Option[String] = None,
+  availableIkzs: Seq[String] = Nil,
+  selectedIkzs: Set[String] = Set.empty,
   publications: Seq[Publication] = Nil,
   displayGraph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = DirectedGraphData[Vertex, VertexInfo, EdgeInfo](Set.empty, Set.empty, Map.empty, Map.empty),
   dimensions: Vec2 = Vec2(100, 100),
@@ -66,10 +68,10 @@ case class HoverVertex(v: graph.Vertex) extends Action
 case object UnHoverVertex extends Action
 case class SetDisplayGraph(graph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo]) extends Action
 case class SetDimensions(dimensions: Vec2) extends Action
-case class DownloadPublications(url: String) extends Action
+case class DownloadPublications(url: Iterable[String]) extends Action
 case class SetPublications(ps: Seq[Publication]) extends Action
-case class SetIkzList(ikzs: Seq[String]) extends Action
-case class SetIkz(ikz: String) extends Action
+case class SetAvailableIkzList(availableIkzs: Seq[String]) extends Action
+case class SetIkz(selectedIkzs: Set[String]) extends Action
 case class SetConfig(config: Config) extends Action
 case class ShowSliderWidget(show: Boolean) extends Action
 
@@ -81,15 +83,22 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case SetDisplayGraph(g) =>
         console.log(s"displaying graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
         updated(value.copy(displayGraph = g))
-      case SetPublications(ps) => updated(value.copy(publications = ps), Effect(Future { SetDisplayGraph(tigrs.graph.mergedGraph(value.graphConfig.pubSimilarity, value.graphConfig.authorSimilarity)(ps)) }))
-      case SetIkzList(ikzs) => updated(value.copy(ikzs = ikzs))
-      case SetIkz(ikz) => updated(value.copy(ikz = Some(ikz)), Effect { Future.successful(DownloadPublications(s"fakall.ikz.$ikz")) })
+      case SetPublications(ps) => updated(
+        value.copy(publications = ps),
+        Effect.action(SetDisplayGraph(tigrs.graph.mergedGraph(value.graphConfig.pubSimilarity, value.graphConfig.authorSimilarity)(ps)))
+      )
+      case SetAvailableIkzList(availableIkzs) => updated(value.copy(availableIkzs = availableIkzs))
+      case SetIkz(selectedIkzs) =>
+        updated(
+          value.copy(selectedIkzs = selectedIkzs),
+          Effect.action(DownloadPublications(selectedIkzs.map(ikz => s"fakall.ikz.${ikz}")))
+        )
       case SetDimensions(dim) => updated(value.copy(dimensions = dim))
-      case DownloadPublications(url) => effectOnly(Effect {
-        Data.downloadPublications(url).map {
-          graph => (SetPublications(graph))
-        }
-      })
+      case DownloadPublications(urls) =>
+        val pubsF: Future[Iterable[Seq[Publication]]] = Future.sequence(urls.map(Data.downloadPublications))
+        effectOnly(Effect(
+          pubsF.map(pubs => SetPublications(pubs.reduceOption(_ ++ _).getOrElse(Nil).distinct))
+        ))
       case SetConfig(c: GraphConfig) => updated(value.copy(graphConfig = c))
       case SetConfig(c: SimulationConfig) => updated(value.copy(simConfig = c))
       case SetConfig(c: VisualizationConfig) => updated(value.copy(visConfig = c))

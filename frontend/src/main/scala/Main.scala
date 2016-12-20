@@ -85,11 +85,11 @@ object Visualization {
   def render(conf: WidgetConfig) {
     AppCircuit.dispatch(ShowSliderWidget(conf.sliderWidget.getOrElse(false)))
 
-    AppCircuit.dispatch(SetIkz(conf.ikz))
+    AppCircuit.dispatch(SetIkz(Set(conf.ikz)))
     updateDimensions()
 
     downloadIkzList.onComplete {
-      case Success(ikzs) => AppCircuit.dispatch(SetIkzList(ikzs))
+      case Success(ikzs) => AppCircuit.dispatch(SetAvailableIkzList(ikzs))
       case Failure(e) => console.log(s"error downloading ikz list: $e")
     }
 
@@ -124,6 +124,26 @@ object Visualization {
       )
     }.build
 
+  val ikzSelector = ReactComponentB[ModelProxy[PublicationVisualization]]("Ikz Selector")
+    .render_P { proxy =>
+      val vis = proxy.value
+      val available = vis.availableIkzs
+      val selected = vis.selectedIkzs
+
+      <.div(
+        "ikz: ",
+        selected.toSeq.sorted.map(
+          ikz => <.div(^.key := ikz, ikz, ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected - ikz))))
+        ),
+        <.select(
+          ^.value := selected.headOption.getOrElse(""),
+          ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetIkz(selected + e.target.value))),
+          <.option(),
+          available.sorted.map(ikz => <.option(^.value := ikz, ikz))
+        )
+      )
+    }.build
+
   val configWidget = ReactComponentB[ModelProxy[RootModel]]("configWidget")
     .render_P { proxy =>
       val model = proxy.value
@@ -155,14 +175,7 @@ object Visualization {
           ^.display := "flex",
           ^.flex := "1 1 auto",
           <.div(
-            "ikz: ",
-            <.select(
-              ^.value := vis.ikz,
-              ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetIkz(e.target.value))),
-              <.option(),
-              vis.ikzs.sorted.map(ikz => <.option(^.value := ikz, ikz))
-            ),
-
+            proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
             configSlider("PubSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
               (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.onComplete { case Success(a) => AppCircuit.dispatch(a) }),
             configSlider("AuthorSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,

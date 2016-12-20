@@ -53,9 +53,10 @@ package object graph {
   }
 
   def mergedGraph(pubThreshold: Double, authorThreshold: Double, fractionalCounting: Boolean = true)(publications: Seq[tigrs.Publication]): DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = {
+    if (publications.size == 0) return DirectedGraphData[Vertex, VertexInfo, EdgeInfo](Set.empty, Set.empty, Map.empty, Map.empty)
+
     type P = tigrs.Publication
     type A = tigrs.Author
-    println(s"fract: $fractionalCounting")
 
     val authors: Set[tigrs.Author] = /*time("authors")*/ { publications.flatMap(_.authors)(breakOut) }
 
