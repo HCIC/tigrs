@@ -203,7 +203,11 @@ object Visualization {
             configSlider("WidthFactor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
             configSlider("WidthExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
 
-            configSlider("AuthorLabels", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels)
+            configSlider("AuthorLabels", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
+            <.div(
+              <.input(^.`type` := "text", ^.value := vis.visConfig.filter, ^.placeholder := "filter", ^.width := "100%",
+                ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetConfig(vis.visConfig.copy(filter = e.target.value)))))
+            )
           )
         )
       )

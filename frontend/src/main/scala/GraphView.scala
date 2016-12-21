@@ -40,13 +40,11 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
     var labelsData: js.Dynamic = js.undefined.asInstanceOf[js.Dynamic]
 
     var hoveredVertex: Option[VertexInfo] = None
-    var highlightedVertices: Set[VertexInfo] = Set.empty
-    var highlightedEdges: Set[EdgeInfo] = Set.empty
-    var grayedVertices: Iterable[VertexInfo] = Nil
-    var grayedEdges: Iterable[EdgeInfo] = Nil
-
-    var normalVertices: Iterable[VertexInfo] = Nil
-    var normalEdges: Iterable[EdgeInfo] = Nil
+    var selectedVertices: Iterable[VertexInfo] = Nil
+    var drawBgVertices: Iterable[VertexInfo] = Nil
+    var drawBgEdges: Iterable[EdgeInfo] = Nil
+    var drawFgVertices: Iterable[VertexInfo] = Nil
+    var drawFgEdges: Iterable[EdgeInfo] = Nil
 
     val simulation = d3.forceSimulation()
       .force("center", d3.forceCenter())
@@ -86,44 +84,59 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       val d3Vertex = simulation.find(t.invertX(d3.event.x), t.invertY(d3.event.y), hoverDistance).asInstanceOf[js.UndefOr[VertexInfo]].toOption
       d3Vertex match {
         case Some(v) =>
-          highlight(p, v)
+          hoveredVertex = Some(v)
           AppCircuit.dispatch(HoverVertex(v.vertex))
         case None =>
-          unHighlight(p)
           AppCircuit.dispatch(UnHoverVertex)
       }
 
+      updateHighlight(p)
       draw($.props.runNow())
     }
 
     def mouseOut(p: Props) {
-      unHighlight(p)
+      hoveredVertex = None
       AppCircuit.dispatch(UnHoverVertex)
+      updateHighlight(p)
       draw($.props.runNow())
     }
 
-    def highlight(p: Props, v: VertexInfo) {
+    def updateHighlight(p: Props) {
       import p.graph
+      val filter = p.visConfig.filter.trim.toLowerCase
+      val hovering = hoveredVertex.isDefined
+      val filtering = filter.nonEmpty
+      val hoveredNeighbours = hoveredVertex.map(v => graph.neighbours(v.vertex)).getOrElse(Set.empty)
+      val hoveredIncidentEdges = hoveredVertex.map(v => graph.incidentEdges(v.vertex)).getOrElse(Set.empty)
 
-      hoveredVertex = Some(v)
-      highlightedVertices = graph.neighbours(v.vertex).map(graph.vertexData)
-      highlightedEdges = graph.incidentEdges(v.vertex).map(graph.edgeData)
-      grayedVertices = graph.vertexData.values.filterNot(v => highlightedVertices(v) || (hoveredVertex contains v))
-      grayedEdges = graph.edgeData.values.filterNot(highlightedEdges)
-      normalVertices = Nil
-      normalEdges = Nil
-    }
+      for (v <- graph.vertexData.values) {
+        val isHoveredVertex = hovering && (hoveredVertex.get == v)
+        val isHoveredNeighbour = hovering && (hoveredNeighbours contains v.vertex)
+        val matchedByFilter = v.vertex.isInstanceOf[AuthorSet] && v.vertex.asInstanceOf[AuthorSet].as.exists(_.name.toLowerCase containsSlice filter)
+        v.foreground = (isHoveredVertex || isHoveredNeighbour || (filtering && matchedByFilter))
+        v.color = if ((!(hovering || filtering) || v.foreground)) v.vertex match {
+          case _: AuthorSet => "#FF8A8E"
+          case _: PublicationSet => "#48D7FF"
+        }
+        else v.vertex match {
+          case _: PublicationSet => "#E6F9FF"
+          case _: AuthorSet => "#FFE6E6"
+        }
+      }
 
-    def unHighlight(p: Props) {
-      import p.graph
+      for (e <- graph.edgeData.values) {
+        val isHoveredIncidentEdge = hovering && (hoveredIncidentEdges contains e.edge)
+        e.foreground = isHoveredIncidentEdge
+        e.color = if (hovering) (if (isHoveredIncidentEdge) "black" else "#DDDDDD") else "#8F8F8F"
 
-      hoveredVertex = None
-      highlightedVertices = Set.empty
-      highlightedEdges = Set.empty
-      grayedVertices = Nil
-      grayedEdges = Nil
-      normalVertices = nodes
-      normalEdges = links
+      }
+
+      val (fgv, bgv) = graph.vertexData.values.partition(_.foreground)
+      val (fge, bge) = graph.edgeData.values.partition(_.foreground)
+      drawBgEdges = bge
+      drawFgEdges = fge
+      drawBgVertices = bgv
+      drawFgVertices = fgv
     }
 
     override def update(p: Props, oldProps: Option[Props] = None) = Callback {
@@ -143,6 +156,11 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       if (newOrChanged(_.visConfig.radiusOffset) || newOrChanged(_.visConfig.radiusFactor) || newOrChanged(_.visConfig.radiusExponent)) {
         simulation.force("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
         simulation.alpha(0.1).restart()
+      }
+
+      if (newOrChanged(_.visConfig.filter)) {
+        updateHighlight(p)
+        draw(p)
       }
 
       if (newOrChanged(_.dimensions)) {
@@ -185,10 +203,11 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         simulation.nodes(vertexData)
         simulation.force("link").links(edgeData)
 
-        if (hoveredVertex.isDefined)
-          highlight(p, hoveredVertex.get)
-        else
-          unHighlight(p)
+        if (hoveredVertex.isDefined) {
+          if (!(vertexData contains hoveredVertex.get))
+            hoveredVertex = None
+        }
+        updateHighlight(p)
 
         simulation.alpha(1).restart()
 
@@ -210,75 +229,41 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       context.translate(transform.x, transform.y)
       context.scale(transform.k, transform.k)
 
-      context.strokeStyle = "#8F8F8F"
-      normalEdges.foreach { (e: EdgeInfo) =>
+      drawBgEdges.foreach { (e: EdgeInfo) =>
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
         context.lineWidth = edgeWidth(e, visConfig)
+        context.strokeStyle = e.color
         context.stroke()
       }
 
-      normalVertices.foreach { (v: VertexInfo) =>
+      drawBgVertices.foreach { (v: VertexInfo) =>
         context.moveTo(v.x, v.y)
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
-        context.fillStyle = v.vertex match {
-          case _: graph.PublicationSet => "#48D7FF"
-          case _: graph.AuthorSet => "#FF8A8E"
-        }
+        context.fillStyle = v.color
         context.fill()
       }
 
-      context.strokeStyle = "#DDDDDD"
-      grayedEdges.foreach { e =>
+      drawFgEdges.foreach { (e: EdgeInfo) =>
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
         context.lineWidth = edgeWidth(e, visConfig)
+        context.strokeStyle = e.color
         context.stroke()
       }
 
-      grayedVertices.foreach { (v: VertexInfo) =>
+      drawFgVertices.foreach { (v: VertexInfo) =>
         context.moveTo(v.x, v.y)
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
-        context.fillStyle = v.vertex match {
-          case _: graph.PublicationSet => "#E6F9FF"
-          case _: graph.AuthorSet => "#FFE6E6"
-        }
-        context.fill()
-      }
-
-      context.strokeStyle = "black"
-      highlightedEdges.foreach { e =>
-        context.beginPath()
-        context.moveTo(e.source.x, e.source.y)
-        context.lineTo(e.target.x, e.target.y)
-        context.lineWidth = edgeWidth(e, visConfig)
-        context.stroke()
-      }
-
-      highlightedVertices.foreach { (v: VertexInfo) =>
-        context.moveTo(v.x, v.y)
-        context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
-        context.fillStyle = v.vertex match {
-          case _: graph.PublicationSet => "#48D7FF"
-          case _: graph.AuthorSet => "#FF8A8E"
-        }
+        context.fillStyle = v.color
         context.fill()
       }
 
       hoveredVertex.foreach { v =>
-        context.moveTo(v.x, v.y)
-        context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
-        context.fillStyle = v.vertex match {
-          case _: graph.PublicationSet => "#48D7FF"
-          case _: graph.AuthorSet => "#FF8A8E"
-        }
-        context.fill()
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig) + hoverBorderWidth / 2.0, 0, 2 * Math.PI)
         context.strokeStyle = "rgba(200,200,200, 0.7)"

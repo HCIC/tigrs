@@ -34,12 +34,18 @@ package graph {
     vertex: Vertex,
     @JSExport var x: js.UndefOr[Double] = js.undefined,
     @JSExport var y: js.UndefOr[Double] = js.undefined,
-    weight: Double
+    @JSExport weight: Double,
+    @JSExport var color: String = "#000",
+    @JSExport var foreground: Boolean = false
   )
+
   case class EdgeInfo(
+    edge: Edge[Vertex],
     @JSExport source: VertexInfo,
     @JSExport target: VertexInfo,
-    weight: Double
+    @JSExport weight: Double,
+    @JSExport var color: String = "#000",
+    @JSExport var foreground: Boolean = false
   )
 }
 
@@ -126,7 +132,7 @@ package object graph {
             weight += 1.0
         }
 
-        e -> EdgeInfo(vertexData(ps), vertexData(as), weight)
+        e -> EdgeInfo(e, vertexData(ps), vertexData(as), weight)
     }(breakOut)
 
     DirectedGraphData(vertices, edges, vertexData, edgeData)
