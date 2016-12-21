@@ -140,7 +140,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         simulation.alpha(1).restart()
       }
 
-      if (newOrChanged(_.visConfig)) {
+      if (newOrChanged(_.visConfig.radiusOffset) || newOrChanged(_.visConfig.radiusFactor) || newOrChanged(_.visConfig.radiusExponent)) {
         simulation.force("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
         simulation.alpha(0.1).restart()
       }
@@ -172,6 +172,10 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
 
         labelsData.exit()
           .remove()
+      }
+
+      if (newOrChanged(_.visConfig)) {
+        draw(p)
       }
 
       if (newOrChanged(_.graph)) {
