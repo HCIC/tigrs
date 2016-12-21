@@ -48,7 +48,8 @@ case class VisualizationConfig(
   radiusExponent: Double = 0.608,
   widthOffset: Double = 0.1,
   widthFactor: Double = 0.7,
-  widthExponent: Double = 1.184
+  widthExponent: Double = 1.184,
+  authorLabels: Double = 0.1
 ) extends Config
 
 case class PublicationVisualization(

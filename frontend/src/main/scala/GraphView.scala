@@ -31,10 +31,13 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
   val hoverDistance = 30
   val collisionGap = 2
   val hoverBorderWidth = 5
+  val maxTextWidth = 300
 
   class Backend($: Scope) extends D3Backend($) {
     lazy val canvas = d3.select(component).append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
+    lazy val labels = d3.select(component).append("div")
+    var labelsData: js.Dynamic = js.undefined.asInstanceOf[js.Dynamic]
 
     var hoveredVertex: Option[VertexInfo] = None
     var highlightedVertices: Set[VertexInfo] = Set.empty
@@ -61,6 +64,11 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
     def links = simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]]
 
     override def init(p: Props) = Callback {
+      // init lazy vals
+      canvas
+      context
+      labels
+
       canvas.on("mousemove", () => mouseMove($.props.runNow()))
       canvas.on("mouseout", () => mouseOut($.props.runNow()))
       canvas.call(d3.zoom().on("zoom", () => zoomed($.props.runNow())))
@@ -122,7 +130,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       import p._
       import dimensions._
 
-      def newOrChanged(get: Props => AnyRef) = oldProps.isEmpty || get(p) != get(oldProps.get)
+      def newOrChanged(get: Props => Any) = oldProps.isEmpty || get(p) != get(oldProps.get)
 
       if (newOrChanged(_.simConfig)) {
         simulation.force("gravityx").strength(simConfig.gravity)
@@ -147,8 +155,26 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
         simulation.alpha(0.01).restart()
       }
 
-      if (newOrChanged(_.graph)) {
+      if (newOrChanged(_.visConfig.authorLabels) || newOrChanged(_.graph)) {
+        val authors: Seq[VertexInfo] = graph.vertices.collect { case as: AuthorSet => graph.vertexData(as) }(breakOut)
+        val displayedAuthors = authors.sortBy(-_.weight).take((visConfig.authorLabels * authors.size).toInt).toJSArray
 
+        labelsData = labels.selectAll("div").data(displayedAuthors)
+
+        labelsData.enter()
+          .append("div")
+          .text((v: VertexInfo) => v.vertex.asInstanceOf[AuthorSet].as.head.name.split(",")(0))
+          .style("position", "absolute")
+          .style("pointer-events", "none") // pass mouse events to canvas
+          .style("width", s"${maxTextWidth}px")
+          .style("text-align", "center")
+          .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
+
+        labelsData.exit()
+          .remove()
+      }
+
+      if (newOrChanged(_.graph)) {
         val vertexData = graph.vertices.map(graph.vertexData).toJSArray
         val edgeData = graph.edges.map(graph.edgeData).toJSArray
 
@@ -257,6 +283,10 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       }
 
       context.restore()
+
+      labels.selectAll("div")
+        .style("left", (v: VertexInfo) => s"${transform.applyX(v.x).asInstanceOf[Double] - (maxTextWidth / 2)}px")
+        .style("top", (v: VertexInfo) => s"${transform.applyY(v.y).asInstanceOf[Double] - 10}px")
     }
 
   }

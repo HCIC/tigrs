@@ -201,7 +201,9 @@ object Visualization {
             configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
             configSlider("WidthOffset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
             configSlider("WidthFactor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
-            configSlider("WidthExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent)
+            configSlider("WidthExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
+
+            configSlider("AuthorLabels", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels)
           )
         )
       )
