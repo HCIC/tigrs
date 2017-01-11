@@ -35,8 +35,9 @@ lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes")
     libraryDependencies ++= (
       "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
       "me.chrons" %%% "boopickle" % "1.2.5" ::
-      "com.github.fdietze" %%% "pharg" % "0.1.0-SNAPSHOT" ::
-      "com.github.fdietze" %%% "vectory" % "0.1.0-SNAPSHOT" ::
+      "com.github.fdietze" %%% "pharg" % "0.1.0" ::
+      "com.github.fdietze" %%% "vectory" % "0.1.0" ::
+      "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0-SNAPSHOT" ::
       Nil
     )
   )
@@ -60,7 +61,7 @@ lazy val modsParser = (project in file("modsparser"))
   )
   .dependsOn(datatypesJVM)
 
-val reactVersion = "15.4.1"
+val reactVersion = "15.4.2"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
   .settings(
@@ -70,8 +71,16 @@ lazy val frontend = (project in file("frontend"))
       "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.3" ::
       "me.chrons" %%% "diode-react" % "1.1.0" ::
-      // "com.github.fdietze" %%% "scalajs-react-d3-force-layout" % "0.1.0-SNAPSHOT" ::
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-selection" % "1.0.3" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-collection" % "1.0.2" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-dispatch" % "1.0.2" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-quadtree" % "1.0.2" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-timer" % "1.0.3" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-force" % "1.0.4" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-zoom" % "1.1.1" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-transition" % "1.0.3" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-drag" % "1.0.2" ::
       Nil
     ),
 
@@ -92,19 +101,7 @@ lazy val frontend = (project in file("frontend"))
         / "react-dom-server.js"
         minified "react-dom-server.min.js"
         dependsOn "react-dom.js"
-        commonJSName "ReactDOMServer",
-
-      // "org.webjars.bower" % "d3" % "4.3.0" / "d3.js" minified "d3.min.js",
-      "org.webjars.npm" % "d3-selection" % "1.0.2" / "d3-selection.js" minified "d3-selection.min.js",
-      "org.webjars.npm" % "d3-collection" % "1.0.2" / "d3-collection.js" minified "d3-collection.min.js",
-      "org.webjars.npm" % "d3-dispatch" % "1.0.2" / "d3-dispatch.js" minified "d3-dispatch.min.js",
-      "org.webjars.npm" % "d3-quadtree" % "1.0.2" / "d3-quadtree.js" minified "d3-quadtree.min.js",
-      "org.webjars.npm" % "d3-timer" % "1.0.2" / "d3-timer.js" minified "d3-timer.min.js",
-      "org.webjars.npm" % "d3-force" % "1.0.4" / "d3-force.js" minified "d3-force.min.js",
-      "org.webjars.npm" % "d3-zoom" % "1.1.0" / "d3-zoom.js" minified "d3-zoom.min.js",
-      "org.webjars.npm" % "d3-transition" % "1.0.3" / "d3-transition.js" minified "d3-transition.min.js",
-      "org.webjars.npm" % "d3-drag" % "1.0.1" / "d3-drag.js" minified "d3-drag.min.js"
-
+        commonJSName "ReactDOMServer"
     )
   )
   .enablePlugins(ScalaJSPlugin, WorkbenchPlugin)

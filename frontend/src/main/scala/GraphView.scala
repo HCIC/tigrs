@@ -10,7 +10,7 @@ import org.scalajs.dom._
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
-import fdietze.scalajs.react.components._
+import fdietze.scalajs.react.component._
 
 import graph._
 import collection.breakOut
@@ -24,7 +24,7 @@ case class GraphProps(
   visConfig: VisualizationConfig
 )
 
-object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
+object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   import js.Dynamic.global
   val d3 = global.d3
 
@@ -33,7 +33,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
   val hoverBorderWidth = 5
   val maxTextWidth = 300
 
-  class Backend($: Scope) extends D3Backend($) {
+  class Backend($: Scope) extends CustomBackend($) {
     lazy val canvas = d3.select(component).append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
     lazy val labels = d3.select(component).append("div")
@@ -61,7 +61,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
     def nodes = simulation.nodes().asInstanceOf[js.Array[VertexInfo]]
     def links = simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]]
 
-    override def init(p: Props) = Callback {
+    override def init() {
       // init lazy vals
       canvas
       context
@@ -139,7 +139,7 @@ object GraphViewCanvas extends D3[GraphProps]("GraphViewCanvas") {
       drawFgVertices = fgv
     }
 
-    override def update(p: Props, oldProps: Option[Props] = None) = Callback {
+    override def update(p: Props, oldProps: Option[Props] = None) {
       import p._
       import dimensions._
 
