@@ -60,21 +60,6 @@ lazy val modsParser = (project in file("modsparser"))
   )
   .dependsOn(datatypesJVM)
 
-lazy val indexer = (project in file("indexer"))
-  .settings(commonSettings: _*)
-  .settings(
-    // scalaJSUseRhino in Global := false,
-    jsEnv := NodeJSEnv().value,
-    jsDependencies ++= Seq(
-      "org.webjars.npm" % "elasticlunr" % "0.9.5"
-        / "release/elasticlunr.js"
-        minified "release/elasticlunr.min.js"
-        commonJSName "Elasticlunr"
-    )
-  )
-  .enablePlugins(ScalaJSPlugin)
-  .dependsOn(datatypesJS)
-
 val reactVersion = "15.4.1"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
