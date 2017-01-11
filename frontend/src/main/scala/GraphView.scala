@@ -6,6 +6,7 @@ import vectory._
 import scalajs.js
 import js.JSConverters._
 import scala.scalajs.js.annotation._
+import org.scalajs.dom
 import org.scalajs.dom._
 
 import japgolly.scalajs.react._
@@ -14,6 +15,11 @@ import fdietze.scalajs.react.component._
 
 import graph._
 import collection.breakOut
+
+import org.scalajs.d3v4._
+import org.scalajs.d3v4.force._
+import org.scalajs.d3v4.zoom._
+import org.scalajs.d3v4.selection._
 
 import Math._
 
@@ -26,7 +32,7 @@ case class GraphProps(
 
 object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   import js.Dynamic.global
-  val d3 = global.d3
+  val d3js = global.d3
 
   val hoverDistance = 30
   val collisionGap = 2
@@ -34,9 +40,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   val maxTextWidth = 300
 
   class Backend($: Scope) extends CustomBackend($) {
-    lazy val canvas = d3.select(component).append("canvas")
+    lazy val canvas = d3js.select(component).append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
-    lazy val labels = d3.select(component).append("div")
+    lazy val labels = d3js.select(component).append("div")
     var labelsData: js.Dynamic = js.undefined.asInstanceOf[js.Dynamic]
 
     var hoveredVertex: Option[VertexInfo] = None
@@ -46,7 +52,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     var drawFgVertices: Iterable[VertexInfo] = Nil
     var drawFgEdges: Iterable[EdgeInfo] = Nil
 
-    val simulation = d3.forceSimulation()
+    val simulation = d3.forceSimulation[VertexInfo]()
       .force("center", d3.forceCenter())
       .force("gravityx", d3.forceX())
       .force("gravityy", d3.forceY())
@@ -54,12 +60,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       .force("link", d3.forceLink())
       .force("collision", d3.forceCollide())
 
-    simulation.on("tick", (e: Event) => {
-      draw($.props.runNow())
-    })
+    simulation.on("tick", draw _)
 
-    def nodes = simulation.nodes().asInstanceOf[js.Array[VertexInfo]]
-    def links = simulation.force("link").links().asInstanceOf[js.Array[EdgeInfo]]
+    var transform: Transform = d3.zoomIdentity // stores current pan and zoom
 
     override def init() {
       // init lazy vals
@@ -69,19 +72,16 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
       canvas.on("mousemove", () => mouseMove($.props.runNow()))
       canvas.on("mouseout", () => mouseOut($.props.runNow()))
-      canvas.call(d3.zoom().on("zoom", () => zoomed($.props.runNow())))
+      canvas.call(d3js.zoom().on("zoom", zoomed _))
     }
 
-    def zoomed(p: Props) {
-      import p.dimensions._
-
-      d3.zoom().transform(canvas, d3.event.transform)
-      draw(p)
+    def zoomed() {
+      transform = d3.event.transform
+      draw()
     }
 
     def mouseMove(p: Props) {
-      val t = d3.zoomTransform(canvas.node())
-      val d3Vertex = simulation.find(t.invertX(d3.event.x), t.invertY(d3.event.y), hoverDistance).asInstanceOf[js.UndefOr[VertexInfo]].toOption
+      val d3Vertex = simulation.find(transform.invertX(d3.event.x), transform.invertY(d3.event.y), hoverDistance).asInstanceOf[js.UndefOr[VertexInfo]].toOption
       d3Vertex match {
         case Some(v) =>
           hoveredVertex = Some(v)
@@ -91,14 +91,14 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
 
       updateHighlight(p)
-      draw($.props.runNow())
+      draw()
     }
 
     def mouseOut(p: Props) {
       hoveredVertex = None
       AppCircuit.dispatch(UnHoverVertex)
       updateHighlight(p)
-      draw($.props.runNow())
+      draw()
     }
 
     def updateHighlight(p: Props) {
@@ -146,29 +146,29 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       def newOrChanged(get: Props => Any) = oldProps.isEmpty || get(p) != get(oldProps.get)
 
       if (newOrChanged(_.simConfig)) {
-        simulation.force("gravityx").strength(simConfig.gravity)
-        simulation.force("gravityy").strength(simConfig.gravity)
-        simulation.force("repel").strength(-simConfig.repel)
-        simulation.force("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
+        simulation.force[PositioningX[VertexInfo]]("gravityx").strength(simConfig.gravity)
+        simulation.force[PositioningY[VertexInfo]]("gravityy").strength(simConfig.gravity)
+        simulation.force[ManyBody[VertexInfo]]("repel").strength(-simConfig.repel)
+        simulation.force[force.Link[EdgeInfo]]("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
         simulation.alpha(1).restart()
       }
 
       if (newOrChanged(_.visConfig.radiusOffset) || newOrChanged(_.visConfig.radiusFactor) || newOrChanged(_.visConfig.radiusExponent)) {
-        simulation.force("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
+        simulation.force[Collision[VertexInfo]]("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
         simulation.alpha(0.1).restart()
       }
 
       if (newOrChanged(_.visConfig.filter)) {
         updateHighlight(p)
-        draw(p)
+        draw()
       }
 
       if (newOrChanged(_.dimensions)) {
         canvas.attr("width", width).attr("height", height)
 
-        simulation.force("center").x(width / 2).y(height / 2)
-        simulation.force("gravityx").x(width / 2)
-        simulation.force("gravityy").y(height / 2)
+        simulation.force[Centering]("center").x(width / 2).y(height / 2)
+        simulation.force[PositioningX[VertexInfo]]("gravityx").x(width / 2)
+        simulation.force[PositioningY[VertexInfo]]("gravityy").y(height / 2)
 
         simulation.alpha(0.01).restart()
       }
@@ -193,7 +193,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
 
       if (newOrChanged(_.visConfig)) {
-        draw(p)
+        draw()
       }
 
       if (newOrChanged(_.graph)) {
@@ -201,7 +201,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val edgeData = graph.edges.map(graph.edgeData).toJSArray
 
         simulation.nodes(vertexData)
-        simulation.force("link").links(edgeData)
+        simulation.force[force.Link[EdgeInfo]]("link").links(edgeData)
 
         if (hoveredVertex.isDefined) {
           if (!(vertexData contains hoveredVertex.get))
@@ -218,14 +218,14 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     def vertexRadius(v: VertexInfo, c: VisualizationConfig) = c.radiusOffset + c.radiusFactor * pow(v.weight, c.radiusExponent)
     def edgeWidth(e: EdgeInfo, c: VisualizationConfig) = c.widthOffset + c.widthFactor * pow(e.weight, c.widthExponent)
 
-    def draw(p: Props) {
+    def draw() {
+      val p = $.props.runNow()
       import p.dimensions._
       import p.visConfig
 
       context.save()
       context.clearRect(0, 0, width, height)
 
-      val transform = d3.zoomTransform(canvas.node())
       context.translate(transform.x, transform.y)
       context.scale(transform.k, transform.k)
 

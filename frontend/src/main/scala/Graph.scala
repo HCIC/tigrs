@@ -5,6 +5,8 @@ import collection.{breakOut, mutable, immutable}
 import scalajs.js
 import scalajs.js.annotation._
 
+import org.scalajs.d3v4.force.{SimulationNodeImpl => D3Node, SimulationLinkImpl => D3Link}
+
 package graph {
   sealed trait Vertex
   case class PublicationSet(ids: Set[Int], ps: Set[tigrs.Publication]) extends Vertex {
@@ -32,12 +34,10 @@ package graph {
 
   case class VertexInfo(
     vertex: Vertex,
-    @JSExport var x: js.UndefOr[Double] = js.undefined,
-    @JSExport var y: js.UndefOr[Double] = js.undefined,
     @JSExport weight: Double,
     @JSExport var color: String = "#000",
     @JSExport var foreground: Boolean = false
-  )
+  ) extends D3Node
 
   case class EdgeInfo(
     edge: Edge[Vertex],
@@ -46,7 +46,7 @@ package graph {
     @JSExport weight: Double,
     @JSExport var color: String = "#000",
     @JSExport var foreground: Boolean = false
-  )
+  ) extends D3Link[VertexInfo, VertexInfo]
 }
 
 package object graph {
