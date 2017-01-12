@@ -37,7 +37,6 @@ lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes")
       "me.chrons" %%% "boopickle" % "1.2.5" ::
       "com.github.fdietze" %%% "pharg" % "0.1.0" ::
       "com.github.fdietze" %%% "vectory" % "0.1.0" ::
-      "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0" ::
       Nil
     )
   )
@@ -72,6 +71,7 @@ lazy val frontend = (project in file("frontend"))
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.3" ::
       "me.chrons" %%% "diode-react" % "1.1.0" ::
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
+      "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0" ::
       "com.github.fdietze" %%% "scala-js-d3v4-selection" % "1.0.3" ::
       "com.github.fdietze" %%% "scala-js-d3v4-collection" % "1.0.2" ::
       "com.github.fdietze" %%% "scala-js-d3v4-dispatch" % "1.0.2" ::
