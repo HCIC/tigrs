@@ -37,7 +37,7 @@ lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes")
       "me.chrons" %%% "boopickle" % "1.2.5" ::
       "com.github.fdietze" %%% "pharg" % "0.1.0" ::
       "com.github.fdietze" %%% "vectory" % "0.1.0" ::
-      "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0-SNAPSHOT" ::
+      "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0" ::
       Nil
     )
   )
