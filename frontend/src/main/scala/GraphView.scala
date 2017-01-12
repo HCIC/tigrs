@@ -60,7 +60,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       .force("link", d3.forceLink())
       .force("collision", d3.forceCollide())
 
-    simulation.on("tick", draw _)
+      simulation.on("tick", () => draw())
 
     var transform: Transform = d3.zoomIdentity // stores current pan and zoom
 
