@@ -39,6 +39,7 @@ package graph {
     var color: String = "#000"
     var foreground: Boolean = false
     var isMatchedByFilter: Boolean = false
+    var isMatchedNeighbour: Boolean = false
     var isHoveredVertex: Boolean = false
     var isHoveredNeighbour: Boolean = false
     var labelOpactiy: Double = 1.0

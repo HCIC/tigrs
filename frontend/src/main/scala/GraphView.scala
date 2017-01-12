@@ -14,6 +14,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import fdietze.scalajs.react.component._
 
 import graph._
+import collection.mutable
 import collection.breakOut
 
 import org.scalajs.d3v4._
@@ -37,6 +38,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   val hoverDistance = 30
   val collisionGap = 2
   val hoverBorderWidth = 5
+  val hoverBorderColor = "rgba(200,200,200, 0.7)"
+  val filterMatchBorderWidth = 10
+  val filterMatchBorderColor = "rgba(136,255,130, 0.7)"
   val maxTextWidth = 300
 
   class Backend($: Scope) extends CustomBackend($) {
@@ -47,6 +51,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
     var hoveredVertex: Option[VertexInfo] = None
     var selectedVertices: Iterable[VertexInfo] = Nil
+    var filterMatchedVertices: Iterable[VertexInfo] = Nil
     var drawBgVertices: Iterable[VertexInfo] = Nil
     var drawBgEdges: Iterable[EdgeInfo] = Nil
     var drawFgVertices: Iterable[VertexInfo] = Nil
@@ -107,23 +112,42 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       draw()
     }
 
+    var filtering: Boolean = false
+    def updateFilter(p: Props) {
+      import p.graph
+
+      val filter = p.visConfig.filter.trim.toLowerCase
+      filtering = filter.nonEmpty
+      val matched = mutable.ArrayBuffer.empty[VertexInfo]
+      if (filtering)
+        for (v <- graph.vertexData.values) {
+          import v._
+          isMatchedByFilter = vertex.isInstanceOf[AuthorSet] && vertex.asInstanceOf[AuthorSet].as.exists(_.name.toLowerCase containsSlice filter)
+          if (isMatchedByFilter) {
+            matched += v
+          }
+        }
+      filterMatchedVertices = matched
+
+      for (v <- graph.vertexData.values) {
+        import v._
+        isMatchedNeighbour = vertex.isInstanceOf[PublicationSet] && graph.neighbours(vertex).exists(v => graph.vertexData(v).isMatchedByFilter)
+      }
+    }
+
     def updateHighlight(p: Props) {
       import p.graph
       val hovering = hoveredVertex.isDefined
       val hoveredNeighbours = hoveredVertex.map(v => graph.neighbours(v.vertex)).getOrElse(Set.empty)
       val hoveredIncidentEdges = hoveredVertex.map(v => graph.incidentEdges(v.vertex)).getOrElse(Set.empty)
 
-      val filter = p.visConfig.filter.trim.toLowerCase
-      val filtering = filter.nonEmpty
-
       for (v <- graph.vertexData.values) {
         import v._
         isHoveredVertex = hovering && (hoveredVertex.get == v)
         isHoveredNeighbour = hovering && (hoveredNeighbours contains vertex)
-        isMatchedByFilter = vertex.isInstanceOf[AuthorSet] && vertex.asInstanceOf[AuthorSet].as.exists(_.name.toLowerCase containsSlice filter)
-        labelOpactiy = if (!(filtering) || foreground) 1.0 else 0.3
 
-        foreground = (isHoveredVertex || isHoveredNeighbour || (filtering && isMatchedByFilter))
+        foreground = (isHoveredVertex || isHoveredNeighbour || (filtering && (isMatchedByFilter || isMatchedNeighbour)))
+        labelOpactiy = if (!(filtering) || foreground) 1.0 else 0.3
         color = if ((!(hovering || filtering) || foreground)) vertex match {
           case _: AuthorSet => "#FF8A8E"
           case _: PublicationSet => "#48D7FF"
@@ -140,7 +164,12 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val isIncidentToFilteredVertex = source.isMatchedByFilter || target.isMatchedByFilter
 
         foreground = isHoveredIncidentEdge
-        color = if (hovering || filtering) (if (isHoveredIncidentEdge || (filtering && isIncidentToFilteredVertex)) "black" else "#DDDDDD") else "#8F8F8F"
+        color = if (hovering || filtering)
+          (
+            if (isHoveredIncidentEdge || (filtering && isIncidentToFilteredVertex))
+              "black" else "#DDDDDD"
+          )
+        else "#8F8F8F"
       }
 
       val (fgv, bgv) = graph.vertexData.values.partition(_.foreground)
@@ -171,6 +200,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
 
       if (newOrChanged(_.visConfig.filter)) {
+        updateFilter(p)
         updateHighlight(p)
         draw()
       }
@@ -216,7 +246,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         simulation.force[force.Link[EdgeInfo]]("link").links(edgeData)
 
         if (hoveredVertex.isDefined) {
-          if (!(vertexData contains hoveredVertex.get))
+          val hoveredVertexDoesNotExistAnymore = !(vertexData contains hoveredVertex.get)
+          if (hoveredVertexDoesNotExistAnymore)
             hoveredVertex = None
         }
         updateHighlight(p)
@@ -275,10 +306,18 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         context.fill()
       }
 
+      filterMatchedVertices.foreach { v =>
+        context.beginPath()
+        context.arc(v.x, v.y, vertexRadius(v, visConfig) + filterMatchBorderWidth / 2.0, 0, 2 * Math.PI)
+        context.strokeStyle = filterMatchBorderColor
+        context.lineWidth = filterMatchBorderWidth
+        context.stroke()
+      }
+
       hoveredVertex.foreach { v =>
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig) + hoverBorderWidth / 2.0, 0, 2 * Math.PI)
-        context.strokeStyle = "rgba(200,200,200, 0.7)"
+        context.strokeStyle = hoverBorderColor
         context.lineWidth = hoverBorderWidth
         context.stroke()
       }
