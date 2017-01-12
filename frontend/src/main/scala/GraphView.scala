@@ -177,7 +177,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val authors: Seq[VertexInfo] = graph.vertices.collect { case as: AuthorSet => graph.vertexData(as) }(breakOut)
         val displayedAuthors = authors.sortBy(-_.weight).take((visConfig.authorLabels * authors.size).toInt).toJSArray
 
-        labelsData = labels.selectAll("div").data(displayedAuthors)
+        labelsData = labels.selectAll("div").data(displayedAuthors, (vi:VertexInfo) => vi.vertex.asInstanceOf[AuthorSet].ids.mkString)
 
         labelsData.enter()
           .append("div")
