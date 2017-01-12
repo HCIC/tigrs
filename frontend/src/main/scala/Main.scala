@@ -262,9 +262,9 @@ object Visualization {
               //   )
               case graph.PublicationSet(_, ps) =>
                 <.div(
-                  ps.toSeq.sortBy(_.origin.date).reverse.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
+                  ps.sortBy(_.origin.date).reverse.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
                   <.br(),
-                  ps.flatMap(p => p.authors).toSeq.sortBy(_.name).map(a => <.div(a.name))
+                  ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)) //TODO: sort by score
                 )
               case graph.AuthorSet(_, as) =>
                 <.div(

@@ -9,7 +9,7 @@ import org.scalajs.d3v4.force.{SimulationNodeImpl => D3Node, SimulationLinkImpl 
 
 package graph {
   sealed trait Vertex
-  case class PublicationSet(ids: Set[Int], ps: Set[tigrs.Publication]) extends Vertex {
+  case class PublicationSet(ids: Set[Int], ps: Seq[tigrs.Publication]) extends Vertex {
     def canEqual(a: Any) = a.isInstanceOf[PublicationSet]
 
     override def equals(that: Any): Boolean =
@@ -20,7 +20,7 @@ package graph {
 
     override def hashCode = ids.hashCode
   }
-  case class AuthorSet(ids: Set[String], as: Set[tigrs.Author]) extends Vertex {
+  case class AuthorSet(ids: Set[String], as: Seq[tigrs.Author]) extends Vertex {
     def canEqual(a: Any) = a.isInstanceOf[AuthorSet]
 
     override def equals(that: Any): Boolean =
@@ -106,18 +106,35 @@ package object graph {
           Edge(aa, ab)
       }(breakOut)
     }
-    val pubSets: Set[PublicationSet] = /*time("cc pubsets")*/ { DirectedGraph(vertices = publications.toSet, edges = mergablePublications).connectedComponents.map(ps => PublicationSet(ps.map(_.recordId), ps)) }
-    val authorSets: Set[AuthorSet] = /*time("cc authorsets")*/ { DirectedGraph(vertices = authors, edges = mergableAuthors).connectedComponents.map(as => AuthorSet(as.map(_.id), as)) }
 
-    val vertices: Set[Vertex] = /*time("vertices")*/ { pubSets ++ authorSets }
+    val authorScore: Map[A, Double] = if (fractionalCounting) {
+      authors.map { a =>
+        var weight = 0.0
+        for (p <- aToP(a))
+          weight += 1.0 / p.authors.size
+        a -> weight
+      }(breakOut)
+    } else {
+      authors.map { a =>
+        var weight = 0.0
+        for (p <- aToP(a))
+          weight += 1.0
+        a -> weight
+      }(breakOut)
+    }
+
+    val pubSets: Seq[PublicationSet] = /*time("cc pubsets")*/ { DirectedGraph(vertices = publications.toSet, edges = mergablePublications).connectedComponents.map(ps => PublicationSet(ps.map(_.recordId).toSet, ps)) }
+    val authorSets: Seq[AuthorSet] = /*time("cc authorsets")*/ { DirectedGraph(vertices = authors, edges = mergableAuthors).connectedComponents.map(as => AuthorSet(as.map(_.id).toSet, as.sortBy(authorScore))) }
+
+    val vertices: Set[Vertex] = /*time("vertices")*/ { Set.empty ++ pubSets ++ authorSets }
     val aToAs: Map[A, AuthorSet] = /*time("aToAs")*/ { authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut) }
-    val edges: Set[Edge[Vertex]] = /*time("edges")*/ { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Set[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
+    val edges: Set[Edge[Vertex]] = /*time("edges")*/ { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Seq[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
     val vertexData: Map[Vertex, VertexInfo] = vertices.map { v =>
       var weight = 0.0
       v match {
         case as: AuthorSet =>
-          for (a <- as.as; p <- aToP(a))
-            weight += 1.0 / p.authors.size
+          for (a <- as.as)
+            weight += authorScore(a)
         case ps: PublicationSet =>
           weight = ps.ps.size
       }
