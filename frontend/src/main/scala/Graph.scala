@@ -34,19 +34,21 @@ package graph {
 
   case class VertexInfo(
     vertex: Vertex,
-    @JSExport weight: Double,
-    @JSExport var color: String = "#000",
+    @JSExport weight: Double
+  ) extends D3Node {
+    @JSExport var color: String = "#000"
     @JSExport var foreground: Boolean = false
-  ) extends D3Node
+  }
 
   case class EdgeInfo(
     edge: Edge[Vertex],
     @JSExport source: VertexInfo,
     @JSExport target: VertexInfo,
-    @JSExport weight: Double,
-    @JSExport var color: String = "#000",
+    @JSExport weight: Double
+  ) extends D3Link[VertexInfo, VertexInfo] {
+    @JSExport var color: String = "#000"
     @JSExport var foreground: Boolean = false
-  ) extends D3Link[VertexInfo, VertexInfo]
+  }
 }
 
 package object graph {
