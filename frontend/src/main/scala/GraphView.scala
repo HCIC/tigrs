@@ -60,7 +60,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       .force("link", d3.forceLink())
       .force("collision", d3.forceCollide())
 
-      simulation.on("tick", () => draw())
+    simulation.on("tick", () => draw())
 
     var transform: Transform = d3.zoomIdentity // stores current pan and zoom
 
@@ -86,12 +86,13 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         case Some(v) =>
           hoveredVertex = Some(v)
           v match {
-            case VertexInfo(AuthorSet(_, authors),_) => console.log(s"hover:\n ${authors.mkString("\n ")}")
-            case VertexInfo(PublicationSet(_, publications),_) => console.log(s"hover:\n ${publications.mkString("\n ")}")
+            case VertexInfo(AuthorSet(_, authors), _) => console.log(s"hover:\n ${authors.mkString("\n ")}")
+            case VertexInfo(PublicationSet(_, publications), _) => console.log(s"hover:\n ${publications.mkString("\n ")}")
           }
 
           AppCircuit.dispatch(HoverVertex(v.vertex))
         case None =>
+          hoveredVertex = None
           AppCircuit.dispatch(UnHoverVertex)
       }
 
@@ -108,32 +109,38 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
     def updateHighlight(p: Props) {
       import p.graph
-      val filter = p.visConfig.filter.trim.toLowerCase
       val hovering = hoveredVertex.isDefined
-      val filtering = filter.nonEmpty
       val hoveredNeighbours = hoveredVertex.map(v => graph.neighbours(v.vertex)).getOrElse(Set.empty)
       val hoveredIncidentEdges = hoveredVertex.map(v => graph.incidentEdges(v.vertex)).getOrElse(Set.empty)
 
+      val filter = p.visConfig.filter.trim.toLowerCase
+      val filtering = filter.nonEmpty
+
       for (v <- graph.vertexData.values) {
-        val isHoveredVertex = hovering && (hoveredVertex.get == v)
-        val isHoveredNeighbour = hovering && (hoveredNeighbours contains v.vertex)
-        val matchedByFilter = v.vertex.isInstanceOf[AuthorSet] && v.vertex.asInstanceOf[AuthorSet].as.exists(_.name.toLowerCase containsSlice filter)
-        v.foreground = (isHoveredVertex || isHoveredNeighbour || (filtering && matchedByFilter))
-        v.color = if ((!(hovering || filtering) || v.foreground)) v.vertex match {
+        import v._
+        isHoveredVertex = hovering && (hoveredVertex.get == v)
+        isHoveredNeighbour = hovering && (hoveredNeighbours contains vertex)
+        isMatchedByFilter = vertex.isInstanceOf[AuthorSet] && vertex.asInstanceOf[AuthorSet].as.exists(_.name.toLowerCase containsSlice filter)
+        labelOpactiy = if (!(filtering) || foreground) 1.0 else 0.3
+
+        foreground = (isHoveredVertex || isHoveredNeighbour || (filtering && isMatchedByFilter))
+        color = if ((!(hovering || filtering) || foreground)) vertex match {
           case _: AuthorSet => "#FF8A8E"
           case _: PublicationSet => "#48D7FF"
         }
-        else v.vertex match {
+        else vertex match {
           case _: PublicationSet => "#E6F9FF"
           case _: AuthorSet => "#FFE6E6"
         }
       }
 
       for (e <- graph.edgeData.values) {
-        val isHoveredIncidentEdge = hovering && (hoveredIncidentEdges contains e.edge)
-        e.foreground = isHoveredIncidentEdge
-        e.color = if (hovering) (if (isHoveredIncidentEdge) "black" else "#DDDDDD") else "#8F8F8F"
+        import e._
+        val isHoveredIncidentEdge = hovering && (hoveredIncidentEdges contains edge)
+        val isIncidentToFilteredVertex = source.isMatchedByFilter || target.isMatchedByFilter
 
+        foreground = isHoveredIncidentEdge
+        color = if (hovering || filtering) (if (isHoveredIncidentEdge || (filtering && isIncidentToFilteredVertex)) "black" else "#DDDDDD") else "#8F8F8F"
       }
 
       val (fgv, bgv) = graph.vertexData.values.partition(_.foreground)
@@ -182,7 +189,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val authors: Seq[VertexInfo] = graph.vertices.collect { case as: AuthorSet => graph.vertexData(as) }(breakOut)
         val displayedAuthors = authors.sortBy(-_.weight).take((visConfig.authorLabels * authors.size).toInt).toJSArray
 
-        labelsData = labels.selectAll("div").data(displayedAuthors, (vi:VertexInfo) => vi.vertex.asInstanceOf[AuthorSet].ids.mkString)
+        labelsData = labels.selectAll("div").data(displayedAuthors, (vi: VertexInfo) => vi.vertex.asInstanceOf[AuthorSet].ids.mkString)
 
         labelsData.enter()
           .append("div")
@@ -279,8 +286,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       context.restore()
 
       labels.selectAll("div")
-        .style("left", (v: VertexInfo) => s"${transform.applyX(v.x).asInstanceOf[Double] - (maxTextWidth / 2)}px")
-        .style("top", (v: VertexInfo) => s"${transform.applyY(v.y).asInstanceOf[Double] - 10}px")
+        .style("left", (v: VertexInfo) => s"${transform.applyX(v.x) - (maxTextWidth / 2)}px")
+        .style("top", (v: VertexInfo) => s"${transform.applyY(v.y) - 10}px")
+        .style("opacity", (v: VertexInfo) => v.labelOpactiy)
     }
 
   }
