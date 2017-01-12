@@ -85,6 +85,11 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       d3Vertex match {
         case Some(v) =>
           hoveredVertex = Some(v)
+          v match {
+            case VertexInfo(AuthorSet(_, authors),_) => console.log(s"hover:\n ${authors.mkString("\n ")}")
+            case VertexInfo(PublicationSet(_, publications),_) => console.log(s"hover:\n ${publications.mkString("\n ")}")
+          }
+
           AppCircuit.dispatch(HoverVertex(v.vertex))
         case None =>
           AppCircuit.dispatch(UnHoverVertex)
