@@ -64,16 +64,18 @@ object Main extends App {
     val pubs = parsePublications
     println("removing duplicates")
     val distinctPubs = pubs.map(p => p.recordId -> p).toMap.values.toSeq
-    println(s"serializing ${distinctPubs.size} publication data into data/fakall.boo ...")
+    println(s"serializing ${distinctPubs.size} publications into data/fakall.boo ...")
     pickleIntoFile(distinctPubs, "data/fakall.boo")
     distinctPubs
   }
   // val publications = loadPubData
   val ikzs: Seq[String] = publications.flatMap(_.owner.toSeq.flatMap(_.ikz)).distinct
   pickleIkzListIntoFile(ikzs, "data/fakall.ikzlist.boo")
-  for ((ikz, i) <- ikzs.zipWithIndex) {
+  var done = 0
+  for (ikz <- ikzs.par) {
     pickleIntoFile(filterByIkz(publications, ikz), s"data/fakall.ikz.$ikz.boo")
-    print(s"institute: $i / ${ikzs.size}       \r")
+    done += 1
+    print(s"institute: $done / ${ikzs.size}       \r")
   }
   println()
 
