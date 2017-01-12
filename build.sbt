@@ -24,8 +24,8 @@ lazy val commonSettings = Seq(
 lazy val root = project.in(file("."))
   .settings(
     publish := {},
-    publishLocal := {}
-  // run in Compile <<= (run in Compile in tigrsJVM)
+    publishLocal := {},
+    addCommandAlias("dev", "~frontend/fastOptJS")
   )
   .aggregate(frontend)
 
