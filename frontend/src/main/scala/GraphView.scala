@@ -75,6 +75,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       context
       labels
 
+      labels.style("overflow", "hidden")
+
       canvas.on("mousemove", () => mouseMove($.props.runNow()))
       canvas.on("mouseout", () => mouseOut($.props.runNow()))
       canvas.call(d3js.zoom().on("zoom", zoomed _))
