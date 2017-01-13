@@ -21,7 +21,8 @@ import graph._
 
 case class RootModel(
   publicationVisualization: PublicationVisualization,
-  hoveredVertex: Option[graph.Vertex] = None
+  hoveredVertex: Option[graph.Vertex] = None,
+  selectedVertices: Set[graph.Vertex] = Set.empty
 )
 
 case class Search(title: String = "") {
@@ -68,6 +69,8 @@ case class PublicationVisualization(
 
 case class HoverVertex(v: graph.Vertex) extends Action
 case object UnHoverVertex extends Action
+case class SelectVertex(v: graph.Vertex) extends Action
+case class DeselectVertex(v: graph.Vertex) extends Action
 case class SetDisplayGraph(graph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo]) extends Action
 case class SetDimensions(dimensions: Vec2) extends Action
 case class DownloadPublications(url: Iterable[String]) extends Action
@@ -107,13 +110,17 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case ShowSliderWidget(show) => updated(value.copy(sliderWidget = show))
     }
   }
-  val previewHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
+  val hoverHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
     override def handle = {
-      case HoverVertex(v) => updated(
-        value.copy(hoveredVertex = Some(v))
-      )
+      case HoverVertex(v) => updated(value.copy(hoveredVertex = Some(v)))
       case UnHoverVertex => updated(value.copy(hoveredVertex = None))
     }
   }
-  val actionHandler = composeHandlers(publicaitonsHandler, previewHandler)
+  val selectionHandler = new ActionHandler(zoomRW(m => m.selectedVertices)((m, v) => m.copy(selectedVertices = v))) {
+    override def handle = {
+      case SelectVertex(v) => updated(value + v)
+      case DeselectVertex(v) => updated(value - v)
+    }
+  }
+  val actionHandler = composeHandlers(publicaitonsHandler, hoverHandler, selectionHandler)
 }

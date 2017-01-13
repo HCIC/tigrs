@@ -37,7 +37,10 @@ package graph {
     weight: Double
   ) extends D3Node {
     var color: String = "#000"
+    var borderColor: String = "#000"
+    var borderWidth: Double = 0.0
     var foreground: Boolean = false
+    var isSelected: Boolean = false
     var isMatchedByFilter: Boolean = false
     var isMatchedNeighbour: Boolean = false
     var isHoveredVertex: Boolean = false

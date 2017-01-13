@@ -41,6 +41,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   val hoverBorderColor = "rgba(200,200,200, 0.7)"
   val filterMatchBorderWidth = 10
   val filterMatchBorderColor = "rgba(136,255,130, 0.7)"
+  val selectedBorderWidth = 7
+  val selectedBorderColor = "rgba(30,30,30, 0.7)"
   val maxTextWidth = 300
 
   class Backend($: Scope) extends CustomBackend($) {
@@ -51,7 +53,6 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     var labelsData: js.Dynamic = js.undefined.asInstanceOf[js.Dynamic]
 
     var hoveredVertex: Option[VertexInfo] = None
-    var selectedVertices: Iterable[VertexInfo] = Nil
     var filterMatchedVertices: Iterable[VertexInfo] = Nil
     var drawBgVertices: Iterable[VertexInfo] = Nil
     var drawBgEdges: Iterable[EdgeInfo] = Nil
@@ -88,9 +89,11 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         .style("text-align", "center")
         .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
 
-      canvas.on("mousemove", () => mouseMove($.props.runNow()))
-      canvas.on("mouseout", () => mouseOut($.props.runNow()))
-      canvas.call(d3js.zoom().on("zoom", zoomed _))
+      canvas
+        .on("mousemove", () => mouseMove($.props.runNow()))
+        .on("mouseout", () => mouseOut($.props.runNow()))
+        .on("click", () => click($.props.runNow()))
+        .call(d3js.zoom().on("zoom", zoomed _))
     }
 
     def zoomed() {
@@ -105,10 +108,6 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       d3Vertex match {
         case Some(v) =>
           hoveredVertex = Some(v)
-          v match {
-            case VertexInfo(AuthorSet(_, authors), _) => console.log(s"hover:\n ${authors.mkString("\n ")}")
-            case VertexInfo(PublicationSet(_, publications), _) => console.log(s"hover:\n ${publications.mkString("\n ")}")
-          }
 
           AppCircuit.dispatch(HoverVertex(v.vertex))
         case None =>
@@ -123,6 +122,27 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     def mouseOut(p: Props) {
       hoveredVertex = None
       AppCircuit.dispatch(UnHoverVertex)
+      updateHighlight(p)
+      draw()
+    }
+
+    def click(p: Props) {
+      val pos = transform.invert(d3.mouse(canvas.node().asInstanceOf[raw.HTMLCanvasElement]))
+
+      val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
+      d3Vertex match {
+        case Some(v) =>
+          v.isSelected = !v.isSelected
+
+          v match {
+            case VertexInfo(AuthorSet(_, authors), _) => console.log(s"selected:\n ${authors.mkString("\n ")}")
+            case VertexInfo(PublicationSet(_, publications), _) => console.log(s"selected:\n ${publications.mkString("\n ")}")
+          }
+
+          AppCircuit.dispatch(SelectVertex(v.vertex))
+        case None =>
+      }
+
       updateHighlight(p)
       draw()
     }
@@ -161,7 +181,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         isHoveredVertex = hovering && (hoveredVertex.get == v)
         isHoveredNeighbour = hovering && (hoveredNeighbours contains vertex)
 
-        foreground = (isHoveredVertex || isHoveredNeighbour || (filtering && (isMatchedByFilter || isMatchedNeighbour)))
+        foreground = (isHoveredVertex || isHoveredNeighbour || isSelected || (filtering && (isMatchedByFilter || isMatchedNeighbour)))
         labelOpactiy = if (!(filtering) || foreground) 1.0 else 0.3
         color = if ((!(hovering || filtering) || foreground)) vertex match {
           case _: AuthorSet => "#FF8A8E"
@@ -171,6 +191,17 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
           case _: PublicationSet => "#E6F9FF"
           case _: AuthorSet => "#FFE6E6"
         }
+        borderWidth = if (isHoveredVertex && isSelected) selectedBorderWidth
+        else if (isHoveredVertex) hoverBorderWidth
+        else if (isMatchedByFilter) filterMatchBorderWidth
+        else if (isSelected) selectedBorderWidth
+        else 0.0
+
+        borderColor = if (isHoveredVertex) hoverBorderColor
+        else if (isMatchedByFilter) filterMatchBorderColor
+        else if (isSelected) selectedBorderColor
+        else "#000"
+
       }
 
       for (e <- graph.edgeData.values) {
@@ -329,22 +360,13 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
         context.fillStyle = v.color
         context.fill()
-      }
-
-      filterMatchedVertices.foreach { v =>
-        context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig) + filterMatchBorderWidth / 2.0, 0, 2 * Math.PI)
-        context.strokeStyle = filterMatchBorderColor
-        context.lineWidth = filterMatchBorderWidth
-        context.stroke()
-      }
-
-      hoveredVertex.foreach { v =>
-        context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig) + hoverBorderWidth / 2.0, 0, 2 * Math.PI)
-        context.strokeStyle = hoverBorderColor
-        context.lineWidth = hoverBorderWidth
-        context.stroke()
+        if (v.borderWidth > 0.0) {
+          context.beginPath()
+          context.arc(v.x, v.y, vertexRadius(v, visConfig) + v.borderWidth / 2.0, 0, 2 * Math.PI)
+          context.strokeStyle = v.borderColor
+          context.lineWidth = v.borderWidth
+          context.stroke()
+        }
       }
 
       context.restore()
