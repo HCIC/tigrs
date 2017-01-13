@@ -44,9 +44,10 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   val maxTextWidth = 300
 
   class Backend($: Scope) extends CustomBackend($) {
-    lazy val canvas = d3js.select(component).append("canvas")
+    lazy val container = d3js.select(component)
+    lazy val canvas = container.append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
-    lazy val labels = d3js.select(component).append("div")
+    lazy val labels = container.append("div")
     var labelsData: js.Dynamic = js.undefined.asInstanceOf[js.Dynamic]
 
     var hoveredVertex: Option[VertexInfo] = None
@@ -75,7 +76,17 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       context
       labels
 
-      labels.style("overflow", "hidden")
+      container
+        .style("position", "relative")
+        .style("overflow", "hidden")
+
+      canvas
+        .style("position", "absolute")
+
+      labels
+        .style("pointer-events", "none") // pass mouse events to canvas
+        .style("text-align", "center")
+        .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
 
       canvas.on("mousemove", () => mouseMove($.props.runNow()))
       canvas.on("mouseout", () => mouseOut($.props.runNow()))
@@ -208,7 +219,17 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
 
       if (newOrChanged(_.dimensions)) {
-        canvas.attr("width", width).attr("height", height)
+        container
+          .style("width", s"${width}px")
+          .style("height", s"${height}px")
+
+        canvas
+          .attr("width", width)
+          .attr("height", height)
+
+        labels
+          .style("width", s"${width}px")
+          .style("height", s"${height}px")
 
         simulation.force[Centering]("center").x(width / 2).y(height / 2)
         simulation.force[PositioningX[VertexInfo]]("gravityx").x(width / 2)
@@ -227,12 +248,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
         labelsData.enter()
           .append("div")
-          .text((v: VertexInfo) => v.vertex.asInstanceOf[AuthorSet].as.head.name.split(",")(0))
-          .style("position", "absolute")
-          .style("pointer-events", "none") // pass mouse events to canvas
           .style("width", s"${maxTextWidth}px")
-          .style("text-align", "center")
-          .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
+          .style("position", "absolute")
+          .text((v: VertexInfo) => v.vertex.asInstanceOf[AuthorSet].as.head.name.split(",")(0))
 
         labelsData.exit()
           .remove()
