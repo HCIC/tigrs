@@ -8,15 +8,15 @@ final case class Keyword(keyword: String)
 
 @JSExportAll
 final case class Publication(
-  title: String,
-  authors: Set[Author],
-  keywords: Seq[Keyword],
-  outlet: Option[Outlet],
-  origin: Origin,
-  uri: Option[String],
   recordId: Int,
-  owner: Option[Institute],
-  projects: Seq[Project]
+  title: String,
+  origin: Origin,
+  authors: Set[Author],
+  owner: Option[Institute]
+  // projects: Seq[Project]
+  // outlet: Option[Outlet],
+  // keywords: Seq[Keyword],
+  // uri: Option[String],
 ) {
   def canEqual(a: Any) = a.isInstanceOf[Publication]
 
@@ -28,11 +28,12 @@ final case class Publication(
 
   override def hashCode = recordId.hashCode
 }
-
+// TODO: store date as Int
+// grep dateIssued *.xml | grep -P "\<dateIssued\>\d\d\d\d\</dateIssued\>" -v
 final case class Origin(date: String, publisher: Option[String])
 
 //TODO: role
-final case class Author(id: String, name: String, termsOfAdress: Int) {
+final case class Author(id: String, name: String, termsOfAddress: Int) {
   def canEqual(a: Any) = a.isInstanceOf[Author]
 
   override def equals(that: Any): Boolean =

@@ -153,7 +153,8 @@ object ModsParser {
           val owner = entries.collectFirst(extractOwner)
           val projects = entries.collect(extractProject)
 
-          Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects)
+          // Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects)
+          Publication(recordId, title, origin, authors, owner)
         } catch {
           case e: Exception =>
             println(e.getMessage)

@@ -264,7 +264,7 @@ object Visualization {
                 <.div(
                   ps.sortBy(_.origin.date).reverse.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
                   <.br(),
-                  ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name)) //TODO: sort by score
+                  ps.flatMap(p => p.authors).distinct.sortBy(_.name).sortBy(_.termsOfAddress).map(a => <.div(a.name)) //TODO: sort by score
                 )
               case graph.AuthorSet(_, as) =>
                 <.div(
