@@ -94,12 +94,14 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     }
 
     def zoomed() {
-      transform = d3.event.transform
+      transform = d3.event[ZoomEvent].transform
       draw()
     }
 
     def mouseMove(p: Props) {
-      val d3Vertex = simulation.find(transform.invertX(d3.event.x), transform.invertY(d3.event.y), hoverDistance).asInstanceOf[js.UndefOr[VertexInfo]].toOption
+      val pos = transform.invert(d3.mouse(canvas.node().asInstanceOf[raw.HTMLCanvasElement]))
+
+      val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
       d3Vertex match {
         case Some(v) =>
           hoveredVertex = Some(v)

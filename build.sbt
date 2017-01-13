@@ -61,6 +61,7 @@ lazy val modsParser = (project in file("modsparser"))
   .dependsOn(datatypesJVM)
 
 val reactVersion = "15.4.2"
+val d3v4FacadeVersion = "0.1.0-SNAPSHOT"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
   .settings(
@@ -72,15 +73,15 @@ lazy val frontend = (project in file("frontend"))
       "me.chrons" %%% "diode-react" % "1.1.0" ::
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
       "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-selection" % "1.0.3" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-collection" % "1.0.2" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-dispatch" % "1.0.2" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-quadtree" % "1.0.2" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-timer" % "1.0.3" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-force" % "1.0.4" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-zoom" % "1.1.1" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-transition" % "1.0.3" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-drag" % "1.0.2" ::
+      "com.github.fdietze" %%% "scala-js-d3v4-selection" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-collection" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-dispatch" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-quadtree" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-timer" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-force" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-zoom" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-transition" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4-drag" % d3v4FacadeVersion ::
       Nil
     ),
 
