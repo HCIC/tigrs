@@ -214,7 +214,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         simulation.force[PositioningX[VertexInfo]]("gravityx").x(width / 2)
         simulation.force[PositioningY[VertexInfo]]("gravityy").y(height / 2)
 
-        simulation.alpha(0.01).restart()
+        val simulationHasStopped = simulation.alpha() <= simulation.alphaMin()
+        if (simulationHasStopped)
+          simulation.alpha(simulation.alphaMin()).restart()
       }
 
       if (newOrChanged(_.visConfig.authorLabels) || newOrChanged(_.graph)) {
