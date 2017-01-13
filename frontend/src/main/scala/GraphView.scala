@@ -272,6 +272,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
           if (hoveredVertexDoesNotExistAnymore)
             hoveredVertex = None
         }
+        updateFilter(p)
         updateHighlight(p)
 
         simulation.alpha(1).restart()
