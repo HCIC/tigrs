@@ -232,6 +232,7 @@ object Visualization {
         ^.border := "1px solid #DDD",
         ^.marginBottom := "10px",
         ^.padding := "10px",
+        ^.paddingRight := "20px",
         ^.width := "400px",
         <.div(
           ^.position := "absolute",
@@ -250,7 +251,13 @@ object Visualization {
         vertex match {
           case graph.PublicationSet(_, ps) =>
             <.div(
-              ps.sortBy(_.origin.date).reverse.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
+              ps.sortBy(_.origin.date).reverse.map { p =>
+                <.div(
+                  ^.key := p.recordId,
+                  s"[${p.origin.date}] ",
+                  <.a(p.title, ^.href := s"https://scholar.google.de/scholar?q=${p.title}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search in Google Scholar")
+                )
+              },
               <.br(),
               ps.flatMap(p => p.authors).distinct.sortBy(_.name).sortBy(_.termsOfAddress).map(a => <.div(a.name)) //TODO: sort by score
             )
