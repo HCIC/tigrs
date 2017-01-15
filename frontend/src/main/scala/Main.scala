@@ -107,7 +107,8 @@ object Visualization {
 
   val widgetView = ReactComponentB[ModelProxy[RootModel]]("WidgetView")
     .render_P { proxy =>
-      val vis = proxy.value.publicationVisualization
+      val m = proxy.value
+      val vis = m.publicationVisualization
       <.div(
         ^.width := "100%",
         ^.height := "100%",
@@ -120,7 +121,16 @@ object Visualization {
           )
         ),
         vis.sliderWidget ?= configWidget(proxy),
-        proxy.wrap(m => m.hoveredVertex)(p => preview(p))
+        <.div(
+          ^.position := "absolute",
+          ^.top := "10px",
+          ^.right := "10px",
+          ^.display := "flex",
+          ^.flexDirection := "column",
+          ^.flexWrap := "wrap-reverse",
+          m.selectedVertices.map(preview(_)),
+          m.hoveredVertex.map(preview(_))
+        )
       )
     }.build
 
@@ -166,8 +176,8 @@ object Visualization {
       }
       <.div(
         ^.position := "absolute",
-        ^.top := "30px",
-        ^.left := "30px",
+        ^.top := "10px",
+        ^.left := "10px",
         ^.background := "white",
         ^.border := "1px solid #DDD",
         ^.padding := "10px",
@@ -213,69 +223,43 @@ object Visualization {
       )
     }.build
 
-  val preview = ReactComponentB[ModelProxy[Option[Vertex]]]("Preview")
-    .render_P { proxy =>
+  val preview = ReactComponentB[Vertex]("Preview")
+    .render_P { vertex =>
       import graph._
-      proxy.value match {
-        case Some(data) =>
-          <.div(
-            ^.position := "absolute",
-            ^.top := "30px",
-            ^.right := "30px",
-            ^.background := "white",
-            ^.border := "1px solid #DDD",
-            ^.padding := "10px",
-            ^.width := "400px",
-            data match {
-              // case Publication(title, authors, keywords, outlet, origin, uri, recordId, owner, projects) =>
-              //   <.div(
-              //     <.h3(title),
-              //     outlet.map(o => <.div(o.name)),
-              //     <.ul(authors.map(a => <.li(a.name))),
-              //     keywords.headOption.map(_ => "Keywords:"),
-              //     <.ul(keywords.map(k => <.li(k.keyword))),
-              //     <.div(origin.publisher.map(p => s"${p}, "), s"${origin.date}"),
-              //     uri.map(uri => <.a(^.href := uri, uri)),
-              //     <.div(s"record: $recordId"),
-              //     owner.map(_ => "Owner:"),
-              //     owner.map(institute => <.ul(institute.ikz.map(ikz => <.li(ikz)))),
-              //     projects.headOption.map(_ => "Projects:"),
-              //     <.ul(projects.map(p => <.li(p.name)))
-              //   )
-              // case o: Outlet =>
-              //   <.div(
-              //     <.h3(o.name)
-              //   )
-              // case k: Keyword =>
-              //   <.div(
-              //     <.h3(k.keyword)
-              //   )
-              // case p: Project =>
-              //   <.div(
-              //     <.h3(p.name),
-              //     <.h2(p.id)
-              //   )
-              // case Author(id, a: tigrs.Author) =>
-              //   <.div(
-              //     <.h3(a.name),
-              //     id
-              //   )
-              case graph.PublicationSet(_, ps) =>
-                <.div(
-                  ps.sortBy(_.origin.date).reverse.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
-                  <.br(),
-                  ps.flatMap(p => p.authors).distinct.sortBy(_.name).sortBy(_.termsOfAddress).map(a => <.div(a.name)) //TODO: sort by score
-                )
-              case graph.AuthorSet(_, as) =>
-                <.div(
-                  as.map(a => <.div(^.key := a.id, <.b(a.name)))
-                )
-              case other => other.toString
-            }
-          )
-        case None => <.div()
-      }
+      <.div(
+        ^.position := "relative",
+        ^.background := "white",
+        ^.border := "1px solid #DDD",
+        ^.marginBottom := "10px",
+        ^.padding := "10px",
+        ^.width := "400px",
+        <.div(
+          ^.position := "absolute",
+          ^.top := "0",
+          ^.right := "0",
+          ^.width := "30px",
+          ^.height := "30px",
+          ^.display := "flex",
+          ^.justifyContent := "center",
+          ^.alignItems := "center",
+          ^.color := "#888",
+          ^.cursor := "pointer",
+          "x",
+          ^.onClick --> Callback { AppCircuit.dispatch(DeselectVertex(vertex)) }
+        ),
+        vertex match {
+          case graph.PublicationSet(_, ps) =>
+            <.div(
+              ps.sortBy(_.origin.date).reverse.map(p => <.div(^.key := p.recordId, s"[${p.origin.date}] ", <.b(p.title))),
+              <.br(),
+              ps.flatMap(p => p.authors).distinct.sortBy(_.name).sortBy(_.termsOfAddress).map(a => <.div(a.name)) //TODO: sort by score
+            )
+          case graph.AuthorSet(_, as) =>
+            <.div(
+              as.map(a => <.div(^.key := a.id, <.b(a.name)))
+            )
+        }
+      )
     }
     .build
-
 }

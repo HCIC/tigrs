@@ -97,7 +97,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     }
 
     def zoomed() {
-      transform = d3.event[ZoomEvent].transform
+      transform = d3.event.asInstanceOf[ZoomEvent].transform
       draw()
     }
 
@@ -132,14 +132,18 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
       d3Vertex match {
         case Some(v) =>
-          v.isSelected = !v.isSelected
+          if (v.isSelected) {
+            v.isSelected = false
+            AppCircuit.dispatch(DeselectVertex(v.vertex))
+          } else {
+            v.isSelected = true
+            AppCircuit.dispatch(SelectVertex(v.vertex))
+          }
 
           v match {
             case VertexInfo(AuthorSet(_, authors), _) => console.log(s"selected:\n ${authors.mkString("\n ")}")
             case VertexInfo(PublicationSet(_, publications), _) => console.log(s"selected:\n ${publications.mkString("\n ")}")
           }
-
-          AppCircuit.dispatch(SelectVertex(v.vertex))
         case None =>
       }
 
@@ -236,7 +240,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         simulation.force[PositioningX[VertexInfo]]("gravityx").strength(simConfig.gravity)
         simulation.force[PositioningY[VertexInfo]]("gravityy").strength(simConfig.gravity)
         simulation.force[ManyBody[VertexInfo]]("repel").strength(-simConfig.repel)
-        simulation.force[force.Link[EdgeInfo]]("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
+        simulation.force[force.Link[VertexInfo, EdgeInfo]]("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
         simulation.alpha(1).restart()
       }
 
@@ -264,7 +268,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
           .style("width", s"${width}px")
           .style("height", s"${height}px")
 
-        simulation.force[Centering]("center").x(width / 2).y(height / 2)
+        simulation.force[Centering[VertexInfo]]("center").x(width / 2).y(height / 2)
         simulation.force[PositioningX[VertexInfo]]("gravityx").x(width / 2)
         simulation.force[PositioningY[VertexInfo]]("gravityy").y(height / 2)
 
@@ -298,7 +302,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val edgeData = graph.edges.map(graph.edgeData).toJSArray
 
         simulation.nodes(vertexData)
-        simulation.force[force.Link[EdgeInfo]]("link").links(edgeData)
+        simulation.force[force.Link[VertexInfo, EdgeInfo]]("link").links(edgeData)
 
         if (hoveredVertex.isDefined) {
           val hoveredVertexDoesNotExistAnymore = !(vertexData contains hoveredVertex.get)
