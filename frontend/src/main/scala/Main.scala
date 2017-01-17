@@ -141,10 +141,12 @@ object Visualization {
       val selected = vis.selectedIkzs
 
       <.div(
-        "ikz: ",
+        "selected ikz numbers:",
         selected.toSeq.sorted.map(
-          ikz => <.div(^.key := ikz, ikz, ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected - ikz))))
+          ikz => <.div(<.b(ikz), " (click to remove)", ^.cursor := "pointer",
+            ^.key := ikz, ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected - ikz))))
         ),
+        "add ikz: ",
         <.select(
           ^.value := selected.headOption.getOrElse(""),
           ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetIkz(selected + e.target.value))),
@@ -162,8 +164,8 @@ object Visualization {
       def configSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
         <.div(
           ^.display := "flex",
-          ^.justifyContent := "space-between",
-          s"$title: ",
+          ^.justifyContent := "flex-start",
+          <.div(s"$title: ", ^.width := "130px"),
           <.input(
             ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
             ^.onChange ==> ((e: ReactEventI) => {
@@ -187,14 +189,15 @@ object Visualization {
           ^.flex := "1 1 auto",
           <.div(
             proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
-            configSlider("PubSimilarity", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
+            <.hr(),
+            configSlider("Merge Authors", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
               (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
-            configSlider("AuthorSimilarity", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
+            configSlider("Merge Pubs", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
               (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
             <.div(
               ^.display := "flex",
-              ^.justifyContent := "space-between",
-              s"fractionalCounting: ",
+              ^.justifyContent := "flex-start",
+              s"Fract. counting: ",
               <.input(^.`type` := "checkbox", ^.checked := vis.graphConfig.fractionalCounting,
                 ^.onChange ==> ((e: ReactEventI) => {
                   val checked = e.target.checked
