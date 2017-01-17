@@ -65,7 +65,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       .force("gravityy", d3.forceY())
       .force("repel", d3.forceManyBody())
       .force("link", d3.forceLink())
-      .force("collision", d3.forceCollide())
+      // .force("collision", d3.forceCollide())
 
     simulation.on("tick", () => draw())
 
@@ -245,7 +245,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
 
       if (newOrChanged(_.visConfig.radiusOffset) || newOrChanged(_.visConfig.radiusFactor) || newOrChanged(_.visConfig.radiusExponent)) {
-        simulation.force[Collision[VertexInfo]]("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
+        // simulation.force[Collision[VertexInfo]]("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
         simulation.alpha(0.1).restart()
       }
 
