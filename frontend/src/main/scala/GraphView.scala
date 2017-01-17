@@ -242,6 +242,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       this.p = p
 
       def newOrChanged(get: Props => Any) = oldProps.isEmpty || get(p) != get(oldProps.get)
+      val simulationHasStopped = simulation.alpha() <= simulation.alphaMin()
 
       if (newOrChanged(_.simConfig)) {
         simulation.force[PositioningX[VertexInfo]]("gravityx").strength(simConfig.gravity)
@@ -251,20 +252,20 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         simulation.alpha(1).restart()
       }
 
-      if (newOrChanged(_.visConfig.radiusOffset) || newOrChanged(_.visConfig.radiusFactor) || newOrChanged(_.visConfig.radiusExponent)) {
-        // simulation.force[Collision[VertexInfo]]("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
-        simulation.alpha(0.1).restart()
-      }
+      // if (newOrChanged(_.visConfig.radiusOffset) || newOrChanged(_.visConfig.radiusFactor) || newOrChanged(_.visConfig.radiusExponent)) {
+      // simulation.force[Collision[VertexInfo]]("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
+      // simulation.alpha(0.1).restart()
+      // }
 
       if (newOrChanged(_.visConfig.filter)) {
         updateFilter()
         updateHighlight()
-        draw()
+        if (simulationHasStopped) draw()
       }
 
       if (newOrChanged(_.visConfig.minYear) || newOrChanged(_.visConfig.maxYear)) {
         updateHighlight()
-        draw()
+        if (simulationHasStopped) draw()
       }
 
       if (newOrChanged(_.dimensions)) {
@@ -284,7 +285,6 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         simulation.force[PositioningX[VertexInfo]]("gravityx").x(width / 2)
         simulation.force[PositioningY[VertexInfo]]("gravityy").y(height / 2)
 
-        val simulationHasStopped = simulation.alpha() <= simulation.alphaMin()
         if (simulationHasStopped)
           simulation.alpha(simulation.alphaMin()).restart()
       }
