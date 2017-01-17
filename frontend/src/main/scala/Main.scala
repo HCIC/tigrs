@@ -117,7 +117,8 @@ object Visualization {
             vis.displayGraph,
             vis.dimensions,
             vis.simConfig,
-            vis.visConfig
+            vis.visConfig,
+            m.selectedVertices
           )
         ),
         vis.sliderWidget ?= configWidget(proxy),
@@ -141,7 +142,7 @@ object Visualization {
       val selected = vis.selectedIkzs
 
       <.div(
-        "selected ikz numbers:",
+        "selected ikz:", <.br(),
         selected.toSeq.sorted.map(
           ikz => <.div(<.b(ikz), " (click to remove)", ^.cursor := "pointer",
             ^.key := ikz, ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected - ikz))))

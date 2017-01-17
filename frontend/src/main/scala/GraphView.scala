@@ -28,7 +28,8 @@ case class GraphProps(
   graph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo],
   dimensions: Vec2,
   simConfig: SimulationConfig,
-  visConfig: VisualizationConfig
+  visConfig: VisualizationConfig,
+  selectedVertices: Vector[Vertex]
 )
 
 object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
@@ -134,13 +135,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
       d3Vertex match {
         case Some(v) =>
-          if (v.isSelected) {
-            v.isSelected = false
-            AppCircuit.dispatch(DeselectVertex(v.vertex))
-          } else {
-            v.isSelected = true
-            AppCircuit.dispatch(SelectVertex(v.vertex))
-          }
+          if (v.isSelected) AppCircuit.dispatch(DeselectVertex(v.vertex))
+          else AppCircuit.dispatch(SelectVertex(v.vertex))
 
           v match {
             case VertexInfo(AuthorSet(_, authors), _) => console.log(s"selected:\n ${authors.mkString("\n ")}")
@@ -148,13 +144,11 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
           }
         case None =>
       }
-
-      updateHighlight()
-      draw()
     }
 
     var filtering: Boolean = false
     def updateFilter() {
+      // println("updateFilter")
       val graph = p.graph
 
       val filter = p.visConfig.filter.trim.toLowerCase
@@ -177,6 +171,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     }
 
     def updateHighlight() {
+      // println("updateHighlight")
       val graph = p.graph
 
       val hovering = hoveredVertex.isDefined
@@ -237,6 +232,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     }
 
     override def update(p: Props, oldProps: Option[Props] = None) {
+      // println("update")
       import p._
       import dimensions._
       this.p = p
@@ -326,6 +322,17 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
         simulation.alpha(1).restart()
 
+      }
+
+      if (newOrChanged(_.selectedVertices)) {
+        for (v <- graph.vertexData.values)
+          v.isSelected = false
+
+        for (selected <- p.selectedVertices)
+          graph.vertexData(selected).isSelected = true
+
+        updateHighlight()
+        draw()
       }
 
     }

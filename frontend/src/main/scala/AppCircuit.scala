@@ -75,6 +75,7 @@ case class HoverVertex(v: graph.Vertex) extends Action
 case object UnHoverVertex extends Action
 case class SelectVertex(v: graph.Vertex) extends Action
 case class DeselectVertex(v: graph.Vertex) extends Action
+case object ClearSelectedVertices extends Action
 case class SetDisplayGraph(graph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo]) extends Action
 case class SetDimensions(dimensions: Vec2) extends Action
 case class DownloadPublications(url: Iterable[String]) extends Action
@@ -91,7 +92,10 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
     override def handle = {
       case SetDisplayGraph(g) =>
         console.log(s"displaying graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
-        updated(value.copy(displayGraph = g))
+        updated(
+          value.copy(displayGraph = g),
+          Effect.action(ClearSelectedVertices)
+        )
       case SetPublications(ps) =>
         val minYear = if (ps.isEmpty) 0 else ps.minBy(_.origin.year).origin.year
         val maxYear = if (ps.isEmpty) 0 else ps.maxBy(_.origin.year).origin.year
@@ -140,6 +144,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
     override def handle = {
       case SelectVertex(v) => updated(value :+ v, Effect.action(UnHoverVertex))
       case DeselectVertex(v) => updated(value diff Vector(v))
+      case ClearSelectedVertices => updated(Vector.empty)
     }
   }
   val actionHandler = composeHandlers(publicaitonsHandler, hoverHandler, selectionHandler)
