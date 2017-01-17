@@ -158,7 +158,6 @@ object Visualization {
     .render_P { proxy =>
       val model = proxy.value
       val vis = model.publicationVisualization
-      val currentYear = (new java.util.Date()).getYear + 1900
 
       def configSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
         <.div(
@@ -188,9 +187,9 @@ object Visualization {
           ^.flex := "1 1 auto",
           <.div(
             proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
-            configSlider("PubSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
+            configSlider("PubSimilarity", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
               (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
-            configSlider("AuthorSimilarity", 0.01, 1.1, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
+            configSlider("AuthorSimilarity", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
               (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
             <.div(
               ^.display := "flex",
@@ -208,8 +207,8 @@ object Visualization {
             configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
             configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance),
 
-            configSlider("minYear", currentYear - 20, currentYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
-            configSlider("maxYear", currentYear - 20, currentYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
+            configSlider("minYear", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
+            configSlider("maxYear", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
             configSlider("RadiusOffset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
             configSlider("RadiusFactor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
             configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),

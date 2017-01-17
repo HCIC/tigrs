@@ -44,8 +44,8 @@ case class SimulationConfig(
 ) extends Config
 
 case class VisualizationConfig(
-  minYear: Double = ((new java.util.Date()).getYear + 1900) - 30,
-  maxYear: Double = ((new java.util.Date()).getYear + 1900),
+  minYear: Double = 0,
+  maxYear: Double = 0,
   radiusOffset: Double = 1.0,
   radiusFactor: Double = 1.8,
   radiusExponent: Double = 0.608,
@@ -60,6 +60,8 @@ case class PublicationVisualization(
   availableIkzs: Seq[String] = Nil,
   selectedIkzs: Set[String] = Set.empty,
   publications: Seq[Publication] = Nil,
+  publicationsMinYear: Double = 0,
+  publicationsMaxYear: Double = 0,
   displayGraph: DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = DirectedGraphData[Vertex, VertexInfo, EdgeInfo](Set.empty, Set.empty, Map.empty, Map.empty),
   dimensions: Vec2 = Vec2(100, 100),
   graphConfig: GraphConfig = GraphConfig(),
@@ -90,10 +92,21 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case SetDisplayGraph(g) =>
         console.log(s"displaying graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
         updated(value.copy(displayGraph = g))
-      case SetPublications(ps) => updated(
-        value.copy(publications = ps),
-        Effect.action(SetDisplayGraph(tigrs.graph.mergedGraph(value.graphConfig.pubSimilarity, value.graphConfig.authorSimilarity)(ps)))
-      )
+      case SetPublications(ps) =>
+        val minYear = ps.minBy(_.origin.year).origin.year
+        val maxYear = ps.maxBy(_.origin.year).origin.year
+        updated(
+          value.copy(
+            publications = ps,
+            publicationsMinYear = minYear,
+            publicationsMaxYear = maxYear,
+            visConfig = value.visConfig.copy(
+              minYear = minYear,
+              maxYear = maxYear
+            )
+          ),
+          Effect.action(SetDisplayGraph(tigrs.graph.mergedGraph(value.graphConfig.pubSimilarity, value.graphConfig.authorSimilarity)(ps)))
+        )
       case SetAvailableIkzList(availableIkzs) => updated(value.copy(availableIkzs = availableIkzs))
       case SetIkz(selectedIkzs) =>
         updated(
