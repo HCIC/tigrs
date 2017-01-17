@@ -32,8 +32,7 @@ case class GraphProps(
 )
 
 object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
-  import js.Dynamic.global
-  val d3js = global.d3
+  val d3js = js.Dynamic.global.d3
 
   val hoverDistance = 30
   val collisionGap = 2

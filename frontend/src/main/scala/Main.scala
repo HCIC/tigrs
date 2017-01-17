@@ -262,7 +262,7 @@ object Visualization {
                 )
               },
               <.br(),
-              ps.flatMap(p => p.authors).distinct.sortBy(_.name).sortBy(_.termsOfAddress).map(a => <.div(a.name)) //TODO: sort by score
+              ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name))
             )
           case graph.AuthorSet(_, as) =>
             <.div(
