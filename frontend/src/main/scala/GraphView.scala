@@ -108,17 +108,15 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
       if (hoveredVertex != d3Vertex) {
-        d3Vertex match {
-          case Some(v) =>
-            hoveredVertex = Some(v)
-            AppCircuit.dispatch(HoverVertex(v.vertex))
-          case None =>
-            hoveredVertex = None
-            AppCircuit.dispatch(UnHoverVertex)
-        }
+        hoveredVertex = d3Vertex
 
         updateHighlight()
         draw()
+
+        hoveredVertex match {
+          case Some(v) => AppCircuit.dispatch(HoverVertex(v.vertex))
+          case None => AppCircuit.dispatch(UnHoverVertex)
+        }
       }
     }
 
@@ -347,7 +345,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       context.translate(transform.x, transform.y)
       context.scale(transform.k, transform.k)
 
-      drawBgEdges.foreach { (e: EdgeInfo) =>
+      for (e <- drawBgEdges) {
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
@@ -356,7 +354,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         context.stroke()
       }
 
-      drawBgVertices.foreach { (v: VertexInfo) =>
+      for (v <- drawBgVertices) {
         context.moveTo(v.x, v.y)
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
@@ -364,7 +362,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         context.fill()
       }
 
-      drawFgEdges.foreach { (e: EdgeInfo) =>
+      for (e <- drawFgEdges) {
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
@@ -373,7 +371,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         context.stroke()
       }
 
-      drawFgVertices.foreach { (v: VertexInfo) =>
+      for (v <- drawFgVertices) {
         context.moveTo(v.x, v.y)
         context.beginPath()
         context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
