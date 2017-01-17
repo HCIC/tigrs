@@ -46,6 +46,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   val maxTextWidth = 300
 
   class Backend($: Scope) extends CustomBackend($) {
+    var p: Props = _ //TODO: better solution?
+
     lazy val container = d3js.select(component)
     lazy val canvas = container.append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
@@ -90,9 +92,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
 
       canvas
-        .on("mousemove", () => mouseMove($.props.runNow()))
-        .on("mouseout", () => mouseOut($.props.runNow()))
-        .on("click", () => click($.props.runNow()))
+        .on("mousemove", () => mouseMove())
+        .on("mouseout", () => mouseOut())
+        .on("click", () => click())
         .call(d3js.zoom().on("zoom", zoomed _))
     }
 
@@ -101,32 +103,35 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       draw()
     }
 
-    def mouseMove(p: Props) {
+    def mouseMove() {
       val pos = transform.invert(d3.mouse(canvas.node().asInstanceOf[raw.HTMLCanvasElement]))
 
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
-      d3Vertex match {
-        case Some(v) =>
-          hoveredVertex = Some(v)
+      if (hoveredVertex != d3Vertex) {
+        d3Vertex match {
+          case Some(v) =>
+            hoveredVertex = Some(v)
+            AppCircuit.dispatch(HoverVertex(v.vertex))
+          case None =>
+            hoveredVertex = None
+            AppCircuit.dispatch(UnHoverVertex)
+        }
 
-          AppCircuit.dispatch(HoverVertex(v.vertex))
-        case None =>
-          hoveredVertex = None
-          AppCircuit.dispatch(UnHoverVertex)
+        updateHighlight()
+        draw()
       }
-
-      updateHighlight(p)
-      draw()
     }
 
-    def mouseOut(p: Props) {
-      hoveredVertex = None
-      AppCircuit.dispatch(UnHoverVertex)
-      updateHighlight(p)
-      draw()
+    def mouseOut() {
+      if (hoveredVertex != None) {
+        hoveredVertex = None
+        AppCircuit.dispatch(UnHoverVertex)
+        updateHighlight()
+        draw()
+      }
     }
 
-    def click(p: Props) {
+    def click() {
       val pos = transform.invert(d3.mouse(canvas.node().asInstanceOf[raw.HTMLCanvasElement]))
 
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
@@ -147,13 +152,13 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         case None =>
       }
 
-      updateHighlight(p)
+      updateHighlight()
       draw()
     }
 
     var filtering: Boolean = false
-    def updateFilter(p: Props) {
-      import p.graph
+    def updateFilter() {
+      val graph = p.graph
 
       val filter = p.visConfig.filter.trim.toLowerCase
       filtering = filter.nonEmpty
@@ -174,8 +179,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
     }
 
-    def updateHighlight(p: Props) {
-      import p.graph
+    def updateHighlight() {
+      val graph = p.graph
+
       val hovering = hoveredVertex.isDefined
       val hoveredNeighbours = hoveredVertex.map(v => graph.neighbours(v.vertex)).getOrElse(Set.empty)
       val hoveredIncidentEdges = hoveredVertex.map(v => graph.incidentEdges(v.vertex)).getOrElse(Set.empty)
@@ -236,6 +242,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     override def update(p: Props, oldProps: Option[Props] = None) {
       import p._
       import dimensions._
+      this.p = p
 
       def newOrChanged(get: Props => Any) = oldProps.isEmpty || get(p) != get(oldProps.get)
 
@@ -253,13 +260,13 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
 
       if (newOrChanged(_.visConfig.filter)) {
-        updateFilter(p)
-        updateHighlight(p)
+        updateFilter()
+        updateHighlight()
         draw()
       }
 
       if (newOrChanged(_.visConfig.minYear) || newOrChanged(_.visConfig.maxYear)) {
-        updateHighlight(p)
+        updateHighlight()
         draw()
       }
 
@@ -317,8 +324,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
           if (hoveredVertexDoesNotExistAnymore)
             hoveredVertex = None
         }
-        updateFilter(p)
-        updateHighlight(p)
+        updateFilter()
+        updateHighlight()
 
         simulation.alpha(1).restart()
 
@@ -330,9 +337,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     def edgeWidth(e: EdgeInfo, c: VisualizationConfig) = c.widthOffset + c.widthFactor * pow(e.weight, c.widthExponent)
 
     def draw() {
-      val p = $.props.runNow()
-      import p.dimensions._
-      import p.visConfig
+      val dimensions = p.dimensions
+      val visConfig = p.visConfig
+      import dimensions._
 
       context.save()
       context.clearRect(0, 0, width, height)
