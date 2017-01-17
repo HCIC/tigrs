@@ -3,7 +3,7 @@
 NAME="frontend"
 
 echo "building production assets..."
-sbt fullOptJS
+sbt "frontend/fullOptJS"
 
 rm -rf out
 mkdir -p out
