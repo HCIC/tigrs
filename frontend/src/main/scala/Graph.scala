@@ -45,6 +45,9 @@ package graph {
     var isMatchedNeighbour: Boolean = false
     var isHoveredVertex: Boolean = false
     var isHoveredNeighbour: Boolean = false
+    var isInTimeRange: Boolean = true
+    var minYear: Double = Double.NegativeInfinity
+    var maxYear: Double = Double.PositiveInfinity
     var labelOpactiy: Double = 1.0
   }
 
@@ -115,38 +118,60 @@ package object graph {
       }(breakOut)
     }
 
-    val authorScore: Map[A, Double] = if (fractionalCounting) {
+    case class AuthorInfo(score: Double, minYear: Double, maxYear: Double)
+    val authorInfo: Map[A, AuthorInfo] = if (fractionalCounting) {
       authors.map { a =>
-        var weight = 0.0
-        for (p <- aToP(a))
-          weight += 1.0 / p.authors.size
-        a -> weight
+        var score = 0.0
+        var minYear = Double.PositiveInfinity
+        var maxYear = Double.NegativeInfinity
+        for (p <- aToP(a)) {
+          score += 1.0 / p.authors.size
+          minYear = minYear min p.origin.year
+          maxYear = maxYear max p.origin.year
+        }
+        a -> AuthorInfo(score, minYear, maxYear)
       }(breakOut)
     } else {
       authors.map { a =>
-        var weight = 0.0
-        for (p <- aToP(a))
-          weight += 1.0
-        a -> weight
+        var score = 0.0
+        var minYear = Double.PositiveInfinity
+        var maxYear = Double.NegativeInfinity
+        for (p <- aToP(a)) {
+          score += 1.0
+          minYear = minYear min p.origin.year
+          maxYear = maxYear max p.origin.year
+        }
+        a -> AuthorInfo(score, minYear, maxYear)
       }(breakOut)
     }
 
     val pubSets: Seq[PublicationSet] = /*time("cc pubsets")*/ { DirectedGraph(vertices = publications.toSet, edges = mergablePublications).connectedComponents.map(ps => PublicationSet(ps.map(_.recordId).toSet, ps)) }
-    val authorSets: Seq[AuthorSet] = /*time("cc authorsets")*/ { DirectedGraph(vertices = authors, edges = mergableAuthors).connectedComponents.map(as => AuthorSet(as.map(_.id).toSet, as.sortBy(authorScore))) }
+    val authorSets: Seq[AuthorSet] = /*time("cc authorsets")*/ { DirectedGraph(vertices = authors, edges = mergableAuthors).connectedComponents.map(as => AuthorSet(as.map(_.id).toSet, as.sortBy(authorInfo(_).score))) }
 
     val vertices: Set[Vertex] = /*time("vertices")*/ { Set.empty ++ pubSets ++ authorSets }
     val aToAs: Map[A, AuthorSet] = /*time("aToAs")*/ { authorSets.flatMap(as => as.as.map(a => a -> as))(breakOut) }
     val edges: Set[Edge[Vertex]] = /*time("edges")*/ { pubSets.flatMap(ps => ps.ps.flatMap(p => p.authors.map(aToAs))(breakOut[Seq[P], AuthorSet, Set[AuthorSet]]).map((as: AuthorSet) => Edge(ps, as)))(breakOut) }
     val vertexData: Map[Vertex, VertexInfo] = vertices.map { v =>
       var weight = 0.0
+      var minYear = Double.PositiveInfinity
+      var maxYear = Double.NegativeInfinity
       v match {
         case as: AuthorSet =>
-          for (a <- as.as)
-            weight += authorScore(a)
+          for (a <- as.as) {
+            val info = authorInfo(a)
+            weight += info.score
+            minYear = minYear min info.minYear
+            maxYear = maxYear max info.maxYear
+          }
         case ps: PublicationSet =>
           weight = ps.ps.size
+          minYear = ps.ps.minBy(_.origin.year).origin.year
+          maxYear = ps.ps.maxBy(_.origin.year).origin.year
       }
-      v -> VertexInfo(v, weight = weight)
+      val vi = VertexInfo(v, weight = weight)
+      vi.minYear = minYear
+      vi.maxYear = maxYear
+      v -> vi
     }(breakOut)
     val edgeData: Map[Edge[Vertex], EdgeInfo] = edges.map {
       case e @ Edge(ps: PublicationSet, as: AuthorSet) =>
@@ -158,7 +183,6 @@ package object graph {
           for (a <- as.as; p <- ps.ps if p.authors contains a)
             weight += 1.0
         }
-
         e -> EdgeInfo(e, vertexData(ps), vertexData(as), weight)
     }(breakOut)
 

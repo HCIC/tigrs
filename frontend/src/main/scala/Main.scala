@@ -158,6 +158,7 @@ object Visualization {
     .render_P { proxy =>
       val model = proxy.value
       val vis = model.publicationVisualization
+      val currentYear = (new java.util.Date()).getYear + 1900
 
       def configSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
         <.div(
@@ -171,7 +172,8 @@ object Visualization {
               sideEffect(newConfig)
               proxy.dispatchCB(SetConfig(newConfig))
             })
-          )
+          ),
+          lens.get(config)
         )
       }
       <.div(
@@ -206,6 +208,8 @@ object Visualization {
             configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
             configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance),
 
+            configSlider("minYear", currentYear - 20, currentYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
+            configSlider("maxYear", currentYear - 20, currentYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
             configSlider("RadiusOffset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
             configSlider("RadiusFactor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
             configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
@@ -251,10 +255,10 @@ object Visualization {
         vertex match {
           case graph.PublicationSet(_, ps) =>
             <.div(
-              ps.sortBy(_.origin.date).reverse.map { p =>
+              ps.sortBy(_.origin.year).reverse.map { p =>
                 <.div(
                   ^.key := p.recordId,
-                  s"[${p.origin.date}] ",
+                  s"[${p.origin.year}] ",
                   <.a(p.title, ^.href := s"https://scholar.google.de/scholar?q=${p.title}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search in Google Scholar")
                 )
               },

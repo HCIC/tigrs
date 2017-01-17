@@ -44,6 +44,8 @@ case class SimulationConfig(
 ) extends Config
 
 case class VisualizationConfig(
+  minYear: Double = ((new java.util.Date()).getYear + 1900) - 30,
+  maxYear: Double = ((new java.util.Date()).getYear + 1900),
   radiusOffset: Double = 1.0,
   radiusFactor: Double = 1.8,
   radiusExponent: Double = 0.608,

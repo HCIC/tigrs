@@ -65,7 +65,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       .force("gravityy", d3.forceY())
       .force("repel", d3.forceManyBody())
       .force("link", d3.forceLink())
-      // .force("collision", d3.forceCollide())
+    // .force("collision", d3.forceCollide())
 
     simulation.on("tick", () => draw())
 
@@ -184,17 +184,20 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         import v._
         isHoveredVertex = hovering && (hoveredVertex.get == v)
         isHoveredNeighbour = hovering && (hoveredNeighbours contains vertex)
+        isInTimeRange = maxYear >= p.visConfig.minYear && minYear <= p.visConfig.maxYear
 
-        foreground = (isHoveredVertex || isHoveredNeighbour || isSelected || (filtering && (isMatchedByFilter || isMatchedNeighbour)))
-        labelOpactiy = if (!(filtering) || foreground) 1.0 else 0.3
-        color = if ((!(hovering || filtering) || foreground)) vertex match {
-          case _: AuthorSet => "#FF8A8E"
-          case _: PublicationSet => "#48D7FF"
-        }
-        else vertex match {
-          case _: PublicationSet => "#E6F9FF"
-          case _: AuthorSet => "#FFE6E6"
-        }
+        foreground = isInTimeRange && (isHoveredVertex || isHoveredNeighbour || isSelected || (filtering && (isMatchedByFilter || isMatchedNeighbour)))
+        labelOpactiy = if (isInTimeRange) { if (!(filtering) || foreground) 1.0 else 0.3 } else 0.0
+        color = if (isInTimeRange) {
+          if ((!(hovering || filtering) || foreground)) vertex match {
+            case _: AuthorSet => "#FF8A8E"
+            case _: PublicationSet => "#48D7FF"
+          }
+          else vertex match {
+            case _: PublicationSet => "#E6F9FF"
+            case _: AuthorSet => "#FFE6E6"
+          }
+        } else "rgba(0,0,0,0)"
         borderWidth = if (isHoveredVertex && isSelected) selectedBorderWidth
         else if (isHoveredVertex) hoverBorderWidth
         else if (isMatchedByFilter) filterMatchBorderWidth
@@ -205,21 +208,21 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         else if (isMatchedByFilter) filterMatchBorderColor
         else if (isSelected) selectedBorderColor
         else "#000"
-
       }
 
       for (e <- graph.edgeData.values) {
         import e._
         val isHoveredIncidentEdge = hovering && (hoveredIncidentEdges contains edge)
         val isIncidentToFilteredVertex = source.isMatchedByFilter || target.isMatchedByFilter
+        val isInTimeRange = source.isInTimeRange && target.isInTimeRange
 
-        foreground = isHoveredIncidentEdge
-        color = if (hovering || filtering)
-          (
+        foreground = isInTimeRange && isHoveredIncidentEdge
+        color = if (isInTimeRange) {
+          if (hovering || filtering) {
             if (isHoveredIncidentEdge || (filtering && isIncidentToFilteredVertex))
               "black" else "#DDDDDD"
-          )
-        else "#8F8F8F"
+          } else "#8F8F8F"
+        } else "rgba(0,0,0,0)"
       }
 
       val (fgv, bgv) = graph.vertexData.values.partition(_.foreground)
@@ -251,6 +254,11 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
       if (newOrChanged(_.visConfig.filter)) {
         updateFilter(p)
+        updateHighlight(p)
+        draw()
+      }
+
+      if (newOrChanged(_.visConfig.minYear) || newOrChanged(_.visConfig.maxYear)) {
         updateHighlight(p)
         draw()
       }

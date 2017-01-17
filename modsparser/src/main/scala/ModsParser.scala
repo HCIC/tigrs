@@ -1,6 +1,7 @@
 package tigrs
 
 import scala.xml._
+import scala.util.Try
 
 object ModsParser {
   val numPattern = "\\d+".r
@@ -106,7 +107,7 @@ object ModsParser {
     }
     def extractOrigin: PartialFunction[Node, Origin] = {
       case originInfo @ <originInfo>{ childNodes @ _* }</originInfo> =>
-        val date = (originInfo \ "dateIssued").text
+        val date = Try((originInfo \ "dateIssued").text.take(4).toInt).getOrElse(0)
         val publisher = childNodes collectFirst { case <publisher>{ publisher }</publisher> => publisher.text }
         Origin(date, publisher)
     }

@@ -28,9 +28,7 @@ final case class Publication(
 
   override def hashCode = recordId.hashCode
 }
-// TODO: store date as Int
-// grep dateIssued *.xml | grep -P "\<dateIssued\>\d\d\d\d\</dateIssued\>" -v
-final case class Origin(date: String, publisher: Option[String])
+final case class Origin(year: Int, publisher: Option[String])
 
 //TODO: role
 final case class Author(id: String, name: String, termsOfAddress: Int) {
