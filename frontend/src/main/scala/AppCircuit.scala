@@ -93,8 +93,8 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
         console.log(s"displaying graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
         updated(value.copy(displayGraph = g))
       case SetPublications(ps) =>
-        val minYear = ps.minBy(_.origin.year).origin.year
-        val maxYear = ps.maxBy(_.origin.year).origin.year
+        val minYear = if (ps.isEmpty) 0 else ps.minBy(_.origin.year).origin.year
+        val maxYear = if (ps.isEmpty) 0 else ps.maxBy(_.origin.year).origin.year
         updated(
           value.copy(
             publications = ps,
