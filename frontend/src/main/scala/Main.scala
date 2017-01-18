@@ -193,7 +193,7 @@ object Visualization {
         ^.background := "white",
         ^.border := "1px solid #DDD",
         <.div(
-          <.a(dataToggle := "collapse", ^.href := "#settings", "Settings"),
+          <.a(dataToggle := "collapse", ^.href := "#settings", "Settings", ^.display := "inline-block", ^.width := "100%"),
           <.div(
             ^.`class` := "collapse", ^.id := "settings",
             proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
@@ -221,7 +221,7 @@ object Visualization {
             ),
 
             <.hr(),
-            <.a(dataToggle := "collapse", ^.href := "#advancedSettings", "Advanced Settings"),
+            <.a(dataToggle := "collapse", ^.href := "#advancedSettings", "Advanced Settings", ^.display := "inline-block", ^.width := "100%"),
             <.div(
               ^.`class` := "collapse", ^.id := "advancedSettings",
               <.div(
