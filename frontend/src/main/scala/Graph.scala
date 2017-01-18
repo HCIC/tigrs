@@ -145,7 +145,7 @@ package object graph {
       }(breakOut)
     }
 
-    val pubSets: Seq[PublicationSet] = /*time("cc pubsets")*/ { DirectedGraph(vertices = publications.toSet, edges = mergablePublications).connectedComponents.map(ps => PublicationSet(ps.map(_.recordId).toSet, ps)) }
+    val pubSets: Seq[PublicationSet] = /*time("cc pubsets")*/ { DirectedGraph(vertices = publications.toSet, edges = mergablePublications).connectedComponents.map(ps => PublicationSet(ps.map(_.recordId).toSet, ps.sortBy(-_.origin.year))) }
     val authorSets: Seq[AuthorSet] = /*time("cc authorsets")*/ { DirectedGraph(vertices = authors, edges = mergableAuthors).connectedComponents.map(as => AuthorSet(as.map(_.id).toSet, as.sortBy(-authorInfo(_).score))) }
 
     val vertices: Set[Vertex] = /*time("vertices")*/ { Set.empty ++ pubSets ++ authorSets }

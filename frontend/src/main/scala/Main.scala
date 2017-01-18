@@ -258,7 +258,7 @@ object Visualization {
         vertex match {
           case graph.PublicationSet(_, ps) =>
             <.div(
-              ps.sortBy(_.origin.year).reverse.map { p =>
+              ps.map { p =>
                 <.div(
                   ^.key := p.recordId,
                   s"[${p.origin.year}] ",
