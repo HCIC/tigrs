@@ -52,6 +52,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     lazy val canvas = container.append("canvas")
     lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
     lazy val labels = container.append("div")
+    lazy val hoverLabel = container.append("div")
     var labelsData: js.Dynamic = js.undefined.asInstanceOf[js.Dynamic]
 
     var hoveredVertex: Option[VertexInfo] = None
@@ -78,6 +79,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       canvas
       context
       labels
+      hoverLabel
 
       container
         .style("position", "relative")
@@ -87,6 +89,11 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         .style("position", "absolute")
 
       labels
+        .style("pointer-events", "none") // pass mouse events to canvas
+        .style("text-align", "center")
+        .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
+
+      hoverLabel
         .style("pointer-events", "none") // pass mouse events to canvas
         .style("text-align", "center")
         .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
@@ -113,9 +120,18 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         updateHighlight()
         draw()
 
-        hoveredVertex match {
-          case Some(v) => AppCircuit.dispatch(HoverVertex(v.vertex))
-          case None => AppCircuit.dispatch(UnHoverVertex)
+        hoverLabel.selectAll("div").remove()
+        for (v <- hoveredVertex) {
+          hoverLabel
+            .append("div")
+            .style("width", s"${maxTextWidth}px")
+            .style("position", "absolute")
+            .style("left", s"${transform.applyX(v.x) - (maxTextWidth / 2)}px")
+            .style("top", s"${transform.applyY(v.y) - 10}px")
+            .text(v.vertex match {
+              case AuthorSet(_, as) => as.head.name
+              case PublicationSet(_, ps) => ps.head.title
+            })
         }
       }
     }
@@ -185,7 +201,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         isInTimeRange = maxYear >= p.visConfig.minYear && minYear <= p.visConfig.maxYear
 
         foreground = isInTimeRange && (isHoveredVertex || isHoveredNeighbour || isSelected || (filtering && (isMatchedByFilter || isMatchedNeighbour)))
-        labelOpactiy = if (isInTimeRange) { if (!(filtering) || foreground) 1.0 else 0.3 } else 0.0
+        labelOpactiy = if (isInTimeRange && !isHoveredVertex) { if (!(filtering) || foreground) 1.0 else 0.3 } else 0.0
         color = if (isInTimeRange) {
           if ((!(hovering || filtering) || foreground)) vertex match {
             case _: AuthorSet => "#FF8A8E"
@@ -272,10 +288,6 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         canvas
           .attr("width", width)
           .attr("height", height)
-
-        labels
-          .style("width", s"${width}px")
-          .style("height", s"${height}px")
 
         simulation.force[Centering[VertexInfo]]("center").x(width / 2).y(height / 2)
         simulation.force[PositioningX[VertexInfo]]("gravityx").x(width / 2)
