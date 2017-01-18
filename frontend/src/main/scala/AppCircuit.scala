@@ -21,7 +21,7 @@ import graph._
 
 case class RootModel(
   publicationVisualization: PublicationVisualization,
-  hoveredVertex: Option[graph.Vertex] = None,
+  // hoveredVertex: Option[graph.Vertex] = None,
   selectedVertices: Vector[graph.Vertex] = Vector.empty
 )
 
@@ -71,8 +71,8 @@ case class PublicationVisualization(
 ) {
 }
 
-case class HoverVertex(v: graph.Vertex) extends Action
-case object UnHoverVertex extends Action
+// case class HoverVertex(v: graph.Vertex) extends Action
+// case object UnHoverVertex extends Action
 case class SelectVertex(v: graph.Vertex) extends Action
 case class DeselectVertex(v: graph.Vertex) extends Action
 case object ClearSelectedVertices extends Action
@@ -129,23 +129,23 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
       case ShowSliderWidget(show) => updated(value.copy(sliderWidget = show))
     }
   }
-  val hoverHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
-    override def handle = {
-      case HoverVertex(v) => {
-        if (value.selectedVertices contains v)
-          updated(value.copy(hoveredVertex = None))
-        else
-          updated(value.copy(hoveredVertex = Some(v)))
-      }
-      case UnHoverVertex => updated(value.copy(hoveredVertex = None))
-    }
-  }
+  // val hoverHandler = new ActionHandler(zoomRW(m => m)((m, v) => v)) {
+  //   override def handle = {
+  //     case HoverVertex(v) => {
+  //       if (value.selectedVertices contains v)
+  //         updated(value.copy(hoveredVertex = None))
+  //       else
+  //         updated(value.copy(hoveredVertex = Some(v)))
+  //     }
+  //     case UnHoverVertex => updated(value.copy(hoveredVertex = None))
+  //   }
+  // }
   val selectionHandler = new ActionHandler(zoomRW(m => m.selectedVertices)((m, v) => m.copy(selectedVertices = v))) {
     override def handle = {
-      case SelectVertex(v) => updated(value :+ v, Effect.action(UnHoverVertex))
+      case SelectVertex(v) => updated(value :+ v) //, Effect.action(UnHoverVertex))
       case DeselectVertex(v) => updated(value diff Vector(v))
       case ClearSelectedVertices => updated(Vector.empty)
     }
   }
-  val actionHandler = composeHandlers(publicaitonsHandler, hoverHandler, selectionHandler)
+  val actionHandler = composeHandlers(publicaitonsHandler, /*hoverHandler,*/ selectionHandler)
 }

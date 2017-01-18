@@ -129,8 +129,8 @@ object Visualization {
           ^.display := "flex",
           ^.flexDirection := "column",
           ^.flexWrap := "wrap-reverse",
-          m.selectedVertices.map(preview(_)),
-          m.hoveredVertex.map(preview(_))
+          m.selectedVertices.map(preview(_))
+        // m.hoveredVertex.map(preview(_))
         )
       )
     }.build

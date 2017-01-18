@@ -108,6 +108,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     def zoomed() {
       transform = d3.event.asInstanceOf[ZoomEvent].transform
       draw()
+      hoverLabel.selectAll("div").remove()
     }
 
     def mouseMove() {
@@ -115,7 +116,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
       if (hoveredVertex != d3Vertex) {
-        hoveredVertex = d3Vertex
+        hoveredVertex = d3Vertex.filter(_.isInTimeRange)
 
         updateHighlight()
         draw()
@@ -139,7 +140,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     def mouseOut() {
       if (hoveredVertex != None) {
         hoveredVertex = None
-        AppCircuit.dispatch(UnHoverVertex)
+        hoverLabel.selectAll("div").remove()
+        // AppCircuit.dispatch(UnHoverVertex)
         updateHighlight()
         draw()
       }
