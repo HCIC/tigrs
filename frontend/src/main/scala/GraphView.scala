@@ -172,19 +172,19 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       val filter = p.visConfig.filter.trim.toLowerCase
       filtering = filter.nonEmpty
       val matched = mutable.ArrayBuffer.empty[VertexInfo]
-      if (filtering)
-        for (v <- graph.vertexData.values) {
-          import v._
-          isMatchedByFilter = vertex.isInstanceOf[AuthorSet] && vertex.asInstanceOf[AuthorSet].as.exists(_.name.toLowerCase containsSlice filter)
+      for (v <- graph.vertexData.values) {
+        import v._
+        isMatchedByFilter = filtering && vertex.isInstanceOf[AuthorSet] && vertex.asInstanceOf[AuthorSet].as.exists(_.name.toLowerCase containsSlice filter)
+        if (filtering)
           if (isMatchedByFilter) {
             matched += v
           }
-        }
+      }
       filterMatchedVertices = matched
 
       for (v <- graph.vertexData.values) {
         import v._
-        isMatchedNeighbour = vertex.isInstanceOf[PublicationSet] && graph.neighbours(vertex).exists(v => graph.vertexData(v).isMatchedByFilter)
+        isMatchedNeighbour = filtering && vertex.isInstanceOf[PublicationSet] && graph.neighbours(vertex).exists(v => graph.vertexData(v).isMatchedByFilter)
       }
     }
 
