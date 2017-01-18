@@ -128,12 +128,13 @@ object Visualization {
           ^.right := "10px",
           ^.display := "flex",
           ^.flexDirection := "column",
-          ^.flexWrap := "wrap-reverse",
           m.selectedVertices.map(preview(_))
         // m.hoveredVertex.map(preview(_))
         )
       )
     }.build
+
+  val dataToggle = "data-toggle".reactAttr
 
   val ikzSelector = ReactComponentB[ModelProxy[PublicationVisualization]]("Ikz Selector")
     .render_P { proxy =>
@@ -142,16 +143,15 @@ object Visualization {
       val selected = vis.selectedIkzs
 
       <.div(
-        "selected ikz:", <.br(),
-        selected.toSeq.sorted.map(
-          ikz => <.div(<.b(ikz), " (click to remove)", ^.cursor := "pointer",
-            ^.key := ikz, ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected - ikz))))
-        ),
-        "add ikz: ",
+        <.h4("Institutes"),
+        <.h5(selected.toSeq.sorted.map(
+          ikz => <.span(<.span(^.`class` := "badge badge-primary", ikz, ^.key := ikz, <.span(" \u00D7 ", ^.color := "white", ^.title := "remove", ^.cursor := "pointer", ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected - ikz))))), " ")
+        )),
         <.select(
-          ^.value := selected.headOption.getOrElse(""),
+          ^.value := "",
           ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetIkz(selected + e.target.value))),
-          <.option(),
+          ^.`class` := "form-control form-control-sm",
+          <.option(^.value := "", "Add Institute"),
           available.sorted.map(ikz => <.option(^.value := ikz, ikz))
         )
       )
@@ -164,67 +164,97 @@ object Visualization {
 
       def configSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
         <.div(
-          ^.display := "flex",
-          ^.justifyContent := "flex-start",
-          <.div(s"$title: ", ^.width := "130px"),
-          <.input(
-            ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config), ^.title := lens.get(config),
-            ^.onChange ==> ((e: ReactEventI) => {
-              val newConfig = lens.set(config)(e.target.value.toDouble)
-              sideEffect(newConfig)
-              proxy.dispatchCB(SetConfig(newConfig))
-            })
+          ^.`class` := "row",
+          <.label(s"$title: ", ^.`class` := "col-sm-5 col-form-label col-form-label-sm"),
+          <.div(
+            ^.`class` := "col-sm-5",
+            <.input(
+              ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config),
+              ^.`class` := "form-control form-control-sm",
+              ^.onChange ==> ((e: ReactEventI) => {
+                val newConfig = lens.set(config)(e.target.value.toDouble)
+                sideEffect(newConfig)
+                proxy.dispatchCB(SetConfig(newConfig))
+              })
+            )
           ),
-          lens.get(config)
+          <.div(
+            ^.`class` := "col-sm-2",
+            lens.get(config)
+          )
         )
       }
       <.div(
+        ^.width := "350px",
         ^.position := "absolute",
         ^.top := "10px",
         ^.left := "10px",
+        ^.`class` := "alert show",
         ^.background := "white",
         ^.border := "1px solid #DDD",
-        ^.padding := "10px",
         <.div(
-          ^.display := "flex",
-          ^.flex := "1 1 auto",
           <.div(
             proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
             <.hr(),
             configSlider("Merge Authors", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
               (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
-            configSlider("Merge Pubs", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
+            configSlider("Merge Publ.", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
               (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
+            configSlider("From", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
+            configSlider("Until", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
+
+            configSlider("Author Names", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
+
             <.div(
-              ^.display := "flex",
-              ^.justifyContent := "flex-start",
-              s"Fract. counting: ",
-              <.input(^.`type` := "checkbox", ^.checked := vis.graphConfig.fractionalCounting,
-                ^.onChange ==> ((e: ReactEventI) => {
-                  val checked = e.target.checked
-                  Future { SetDisplayGraph(tigrs.graph.mergedGraph(vis.graphConfig.pubSimilarity, vis.graphConfig.authorSimilarity, checked)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }
-                  proxy.dispatchCB(SetConfig(vis.graphConfig.copy(fractionalCounting = checked)))
-                }))
+              ^.`class` := "row",
+              <.div(
+                ^.`class` := "col-sm-12",
+                <.div(
+                  ^.`class` := "input-group input-group-sm",
+                  <.input(^.placeholder := "Search for Authors", ^.`type` := "search", ^.value := vis.visConfig.filter, ^.`class` := "form-control form-control-sm",
+                    ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetConfig(vis.visConfig.copy(filter = e.target.value))))),
+                  <.span(^.`class` := "input-group-btn", <.button(^.`class` := "btn btn-secondary", "\u00D7", ^.onClick --> proxy.dispatchCB(SetConfig(vis.visConfig.copy(filter = "")))))
+                )
+              )
             ),
+            <.hr(),
 
-            configSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
-            configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
-            configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance),
-
-            configSlider("minYear", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
-            configSlider("maxYear", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
-            configSlider("RadiusOffset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
-            configSlider("RadiusFactor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
-            configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
-            configSlider("WidthOffset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
-            configSlider("WidthFactor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
-            configSlider("WidthExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
-
-            configSlider("AuthorLabels", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
+            <.a(dataToggle := "collapse", ^.href := "#visSliders", "advanced"),
             <.div(
-              <.input(^.`type` := "search", ^.value := vis.visConfig.filter, ^.placeholder := "Filter Authors", ^.width := "100%",
-                ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetConfig(vis.visConfig.copy(filter = e.target.value)))))
+              ^.`class` := "collapse", ^.id := "visSliders",
+              <.div(
+                ^.`class` := "row",
+                <.div(^.`class` := "col-sm-8 col-form-label col-form-label-sm", s"Fractional counting: "),
+                <.div(
+                  ^.`class` := "col-sm-4",
+                  <.div(
+                    ^.`class` := "form-check",
+                    <.label(
+                      ^.`class` := "form-check-label",
+                      <.input(^.`type` := "checkbox", ^.checked := vis.graphConfig.fractionalCounting,
+                        ^.`class` := "form-check-input",
+                        ^.onChange ==> ((e: ReactEventI) => {
+                          val checked = e.target.checked
+                          Future { SetDisplayGraph(tigrs.graph.mergedGraph(vis.graphConfig.pubSimilarity, vis.graphConfig.authorSimilarity, checked)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }
+                          proxy.dispatchCB(SetConfig(vis.graphConfig.copy(fractionalCounting = checked)))
+                        }))
+                    )
+                  )
+                )
+              ),
+
+              configSlider("RadiusOffset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
+              configSlider("RadiusFactor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
+              configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
+              configSlider("WidthOffset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
+              configSlider("WidthFactor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
+              configSlider("WidthExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
+
+              configSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
+              configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
+              configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
             )
+
           )
         )
       )
@@ -234,6 +264,7 @@ object Visualization {
     .render_P { vertex =>
       import graph._
       <.div(
+        ^.`class` := "alert alert-dismissable fade show",
         ^.position := "relative",
         ^.background := "white",
         ^.border := "1px solid #DDD",
@@ -241,18 +272,9 @@ object Visualization {
         ^.padding := "10px",
         ^.paddingRight := "20px",
         ^.width := "400px",
-        <.div(
-          ^.position := "absolute",
-          ^.top := "0",
-          ^.right := "0",
-          ^.width := "30px",
-          ^.height := "30px",
-          ^.display := "flex",
-          ^.justifyContent := "center",
-          ^.alignItems := "center",
-          ^.color := "#888",
-          ^.cursor := "pointer",
-          "x",
+        <.button(
+          ^.`type` := "button", ^.`class` := "close",
+          <.span("\u00D7"), // times symbol
           ^.onClick --> Callback { AppCircuit.dispatch(DeselectVertex(vertex)) }
         ),
         vertex match {
@@ -261,7 +283,7 @@ object Visualization {
               ps.map { p =>
                 <.div(
                   ^.key := p.recordId,
-                  s"[${p.origin.year}] ",
+                  s"${p.origin.year} ",
                   <.a(p.title, ^.href := s"https://scholar.google.de/scholar?q=${p.title}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search in Google Scholar")
                 )
               },

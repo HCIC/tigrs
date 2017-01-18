@@ -40,9 +40,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   val hoverBorderWidth = 5
   val hoverBorderColor = "rgba(200,200,200, 0.7)"
   val filterMatchBorderWidth = 10
-  val filterMatchBorderColor = "rgba(136,255,130, 0.7)"
-  val selectedBorderWidth = 7
-  val selectedBorderColor = "rgba(30,30,30, 0.7)"
+  val filterMatchBorderColor = "rgba(255,218,138, 0.7)"
+  val selectedBorderWidth = 10
+  val selectedBorderColor = "rgba(138,150,255, 0.7)"
   val maxTextWidth = 300
 
   class Backend($: Scope) extends CustomBackend($) {
