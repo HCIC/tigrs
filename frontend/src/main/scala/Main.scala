@@ -149,7 +149,11 @@ object Visualization {
         )),
         <.select(
           ^.value := "",
-          ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetIkz(selected + e.target.value))),
+          ^.onChange ==> ((e: ReactEventI) => {
+            val ga = js.Dynamic.global.ga
+            ga("send", "event", "ikz", e.target.value)
+            proxy.dispatchCB(SetIkz(selected + e.target.value))
+          }),
           ^.`class` := "form-control form-control-sm",
           <.option(^.value := "", "Add Institute"),
           available.sorted.map(ikz => <.option(^.value := ikz, ikz))
