@@ -57,10 +57,10 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
     var hoveredVertex: Option[VertexInfo] = None
     var filterMatchedVertices: Iterable[VertexInfo] = Nil
-    var drawBgVertices: Iterable[VertexInfo] = Nil
-    var drawBgEdges: Iterable[EdgeInfo] = Nil
-    var drawFgVertices: Iterable[VertexInfo] = Nil
-    var drawFgEdges: Iterable[EdgeInfo] = Nil
+    var drawBgVertices: js.Array[VertexInfo] = js.Array()
+    var drawBgEdges: js.Array[EdgeInfo] = js.Array()
+    var drawFgVertices: js.Array[VertexInfo] = js.Array()
+    var drawFgEdges: js.Array[EdgeInfo] = js.Array()
 
     val simulation = d3.forceSimulation[VertexInfo]()
       .force("center", d3.forceCenter())
@@ -241,10 +241,10 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
       val (fgv, bgv) = graph.vertexData.values.partition(_.foreground)
       val (fge, bge) = graph.edgeData.values.partition(_.foreground)
-      drawBgEdges = bge
-      drawFgEdges = fge
-      drawBgVertices = bgv
-      drawFgVertices = fgv
+      drawBgEdges = bge.toJSArray
+      drawFgEdges = fge.toJSArray
+      drawBgVertices = bgv.toJSArray
+      drawFgVertices = fgv.toJSArray
     }
 
     override def update(p: Props, oldProps: Option[Props] = None) {
@@ -352,6 +352,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     def vertexRadius(v: VertexInfo, c: VisualizationConfig) = c.radiusOffset + c.radiusFactor * pow(v.weight, c.radiusExponent)
     def edgeWidth(e: EdgeInfo, c: VisualizationConfig) = c.widthOffset + c.widthFactor * pow(e.weight, c.widthExponent)
 
+    val fullDeg = 2 * Math.PI
     def draw() {
       val dimensions = p.dimensions
       val visConfig = p.visConfig
@@ -362,46 +363,59 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
       context.translate(transform.x, transform.y)
       context.scale(transform.k, transform.k)
+      var i = 0
 
-      for (e <- drawBgEdges) {
+      i = 0
+      while (i < drawBgEdges.size) {
+        val e = drawBgEdges(i)
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
         context.lineWidth = edgeWidth(e, visConfig)
         context.strokeStyle = e.color
         context.stroke()
+        i += 1
       }
 
-      for (v <- drawBgVertices) {
+      i = 0
+      while (i < drawBgVertices.size) {
+        val v = drawBgVertices(i)
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
+        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, fullDeg)
         context.fillStyle = v.color
         context.fill()
+        i += 1
       }
 
-      for (e <- drawFgEdges) {
+      i = 0
+      while (i < drawFgEdges.size) {
+        val e = drawFgEdges(i)
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
         context.lineWidth = edgeWidth(e, visConfig)
         context.strokeStyle = e.color
         context.stroke()
+        i += 1
       }
 
-      for (v <- drawFgVertices) {
+      i = 0
+      while (i < drawFgVertices.size) {
+        val v = drawFgVertices(i)
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, 2 * Math.PI)
+        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, fullDeg)
         context.fillStyle = v.color
         context.fill()
         if (v.borderWidth > 0.0) {
           context.beginPath()
-          context.arc(v.x, v.y, vertexRadius(v, visConfig) + v.borderWidth / 2.0, 0, 2 * Math.PI)
+          context.arc(v.x, v.y, vertexRadius(v, visConfig) + v.borderWidth / 2.0, 0, fullDeg)
           context.strokeStyle = v.borderColor
           context.lineWidth = v.borderWidth
           context.stroke()
         }
+        i += 1
       }
 
       context.restore()
