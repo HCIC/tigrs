@@ -193,7 +193,9 @@ object Visualization {
         ^.background := "white",
         ^.border := "1px solid #DDD",
         <.div(
+          <.a(dataToggle := "collapse", ^.href := "#settings", "Settings"),
           <.div(
+            ^.`class` := "collapse", ^.id := "settings",
             proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
             <.hr(),
             configSlider("Merge Authors", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
@@ -217,14 +219,14 @@ object Visualization {
                 )
               )
             ),
-            <.hr(),
 
-            <.a(dataToggle := "collapse", ^.href := "#visSliders", "advanced"),
+            <.hr(),
+            <.a(dataToggle := "collapse", ^.href := "#advancedSettings", "Advanced Settings"),
             <.div(
-              ^.`class` := "collapse", ^.id := "visSliders",
+              ^.`class` := "collapse", ^.id := "advancedSettings",
               <.div(
                 ^.`class` := "row",
-                <.div(^.`class` := "col-sm-8 col-form-label col-form-label-sm", s"Fractional counting: "),
+                <.div(^.`class` := "col-sm-8 col-form-label col-form-label-sm", s"Fractional Counting: "),
                 <.div(
                   ^.`class` := "col-sm-4",
                   <.div(
@@ -243,16 +245,16 @@ object Visualization {
                 )
               ),
 
-              configSlider("RadiusOffset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
-              configSlider("RadiusFactor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
-              configSlider("RadiusExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
-              configSlider("WidthOffset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
-              configSlider("WidthFactor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
-              configSlider("WidthExponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
+              configSlider("Radius Offset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
+              configSlider("Radius Factor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
+              configSlider("Radius Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
+              configSlider("Width Offset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
+              configSlider("Width Factor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
+              configSlider("Width Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
 
               configSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
               configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
-              configSlider("LinkDistance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
+              configSlider("Link Distance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
             )
 
           )
