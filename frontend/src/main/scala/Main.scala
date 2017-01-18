@@ -222,7 +222,7 @@ object Visualization {
 
             configSlider("AuthorLabels", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
             <.div(
-              <.input(^.`type` := "text", ^.value := vis.visConfig.filter, ^.placeholder := "Filter Authors", ^.width := "100%",
+              <.input(^.`type` := "search", ^.value := vis.visConfig.filter, ^.placeholder := "Filter Authors", ^.width := "100%",
                 ^.onChange ==> ((e: ReactEventI) => proxy.dispatchCB(SetConfig(vis.visConfig.copy(filter = e.target.value)))))
             )
           )
