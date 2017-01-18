@@ -39,6 +39,12 @@ import scala.util.{Try, Success, Failure}
 
 import graph.Vertex
 
+object Main extends JSApp {
+  def main() {
+    println("hello world")
+  }
+}
+
 object Data {
   import scala.concurrent.ExecutionContext.Implicits.global
 

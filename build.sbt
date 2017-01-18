@@ -65,8 +65,6 @@ val d3v4FacadeVersion = "0.1.0-SNAPSHOT"
 lazy val frontend = (project in file("frontend"))
   .settings(commonSettings: _*)
   .settings(
-    persistLauncher in Test := false,
-
     libraryDependencies ++= (
       "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.3" ::
@@ -85,25 +83,32 @@ lazy val frontend = (project in file("frontend"))
       Nil
     ),
 
-    // React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
-    jsDependencies ++= Seq(
-      "org.webjars.bower" % "react" % reactVersion
-        / "react-with-addons.js"
-        minified "react-with-addons.min.js"
-        commonJSName "react",
-
-      "org.webjars.bower" % "react" % reactVersion
-        / "react-dom.js"
-        minified "react-dom.min.js"
-        dependsOn "react-with-addons.js"
-        commonJSName "ReactDOM",
-
-      "org.webjars.bower" % "react" % reactVersion
-        / "react-dom-server.js"
-        minified "react-dom-server.min.js"
-        dependsOn "react-dom.js"
-        commonJSName "ReactDOMServer"
+    npmDependencies in Compile ++= (
+      "react" -> reactVersion ::
+      "react-dom" -> reactVersion ::
+      "react-dom-server" -> reactVersion ::
+      Nil
     )
+
+  // React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
+  // jsDependencies ++= Seq(
+  //   "org.webjars.bower" % "react" % reactVersion
+  //     / "react-with-addons.js"
+  //     minified "react-with-addons.min.js"
+  //     commonJSName "react",
+
+  //   "org.webjars.bower" % "react" % reactVersion
+  //     / "react-dom.js"
+  //     minified "react-dom.min.js"
+  //     dependsOn "react-with-addons.js"
+  //     commonJSName "ReactDOM",
+
+  //   "org.webjars.bower" % "react" % reactVersion
+  //     / "react-dom-server.js"
+  //     minified "react-dom-server.min.js"
+  //     dependsOn "react-dom.js"
+  //     commonJSName "ReactDOMServer"
+  // )
   )
-  .enablePlugins(ScalaJSPlugin, WorkbenchPlugin)
+  .enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
   .dependsOn(datatypesJS)
