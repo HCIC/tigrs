@@ -49,6 +49,7 @@ package graph {
     var minYear: Double = Double.NegativeInfinity
     var maxYear: Double = Double.PositiveInfinity
     var labelOpactiy: Double = 1.0
+    var radius: Double = 1.0
   }
 
   case class EdgeInfo(
@@ -59,6 +60,7 @@ package graph {
   ) extends D3Link[VertexInfo, VertexInfo] {
     var color: String = "#000"
     var foreground: Boolean = false
+    var width: Double = 1.0
   }
 }
 

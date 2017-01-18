@@ -212,6 +212,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
             case _: AuthorSet => "#FFE6E6"
           }
         } else "rgba(0,0,0,0)"
+        radius = vertexRadius(v, p.visConfig)
         borderWidth = if (isHoveredVertex && isSelected) selectedBorderWidth
         else if (isHoveredVertex) hoverBorderWidth
         else if (isMatchedByFilter) filterMatchBorderWidth
@@ -237,6 +238,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
               "black" else "#DDDDDD"
           } else "#8F8F8F"
         } else "rgba(0,0,0,0)"
+        width = edgeWidth(e, p.visConfig)
       }
 
       val (fgv, bgv) = graph.vertexData.values.partition(_.foreground)
@@ -314,6 +316,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       }
 
       if (newOrChanged(_.visConfig)) {
+        updateHighlight()
         draw()
       }
 
@@ -354,12 +357,8 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
 
     val fullDeg = 2 * Math.PI
     def draw() {
-      val dimensions = p.dimensions
-      val visConfig = p.visConfig
-      import dimensions._
-
       context.save()
-      context.clearRect(0, 0, width, height)
+      context.clearRect(0, 0, p.dimensions.width, p.dimensions.height)
 
       context.translate(transform.x, transform.y)
       context.scale(transform.k, transform.k)
@@ -371,7 +370,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
-        context.lineWidth = edgeWidth(e, visConfig)
+        context.lineWidth = e.width
         context.strokeStyle = e.color
         context.stroke()
         i += 1
@@ -382,7 +381,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val v = drawBgVertices(i)
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, fullDeg)
+        context.arc(v.x, v.y, v.radius, 0, fullDeg)
         context.fillStyle = v.color
         context.fill()
         i += 1
@@ -394,7 +393,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         context.beginPath()
         context.moveTo(e.source.x, e.source.y)
         context.lineTo(e.target.x, e.target.y)
-        context.lineWidth = edgeWidth(e, visConfig)
+        context.lineWidth = e.width
         context.strokeStyle = e.color
         context.stroke()
         i += 1
@@ -405,12 +404,12 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val v = drawFgVertices(i)
         context.moveTo(v.x, v.y)
         context.beginPath()
-        context.arc(v.x, v.y, vertexRadius(v, visConfig), 0, fullDeg)
+        context.arc(v.x, v.y, v.radius, 0, fullDeg)
         context.fillStyle = v.color
         context.fill()
         if (v.borderWidth > 0.0) {
           context.beginPath()
-          context.arc(v.x, v.y, vertexRadius(v, visConfig) + v.borderWidth / 2.0, 0, fullDeg)
+          context.arc(v.x, v.y, v.radius + v.borderWidth / 2.0, 0, fullDeg)
           context.strokeStyle = v.borderColor
           context.lineWidth = v.borderWidth
           context.stroke()
