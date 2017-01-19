@@ -9,7 +9,7 @@ import org.scalajs.d3v4.force.{SimulationNodeImpl => D3Node, SimulationLinkImpl 
 
 package graph {
   sealed trait Vertex
-  case class PublicationSet(ids: Set[Int], ps: Seq[tigrs.Publication]) extends Vertex {
+  case class PublicationSet(ids: Set[Int], ps: Seq[tigrs.Publication], rv: RenderVertex) extends Vertex {
     def canEqual(a: Any) = a.isInstanceOf[PublicationSet]
 
     override def equals(that: Any): Boolean =
@@ -32,10 +32,26 @@ package graph {
     override def hashCode = ids.hashCode
   }
 
-  case class VertexInfo(
-    vertex: Vertex,
-    weight: Double
-  ) extends D3Node {
+  trait RenderVertex extends D3Node {
+    var weight: Double = 0.0
+    var color: String = "#000"
+    var borderColor: String = "#000"
+    var borderWidth: Double = 0.0
+    var foreground: Boolean = false
+    var isSelected: Boolean = false
+    var isMatchedByFilter: Boolean = false
+    var isMatchedNeighbour: Boolean = false
+    var isHoveredVertex: Boolean = false
+    var isHoveredNeighbour: Boolean = false
+    var isInTimeRange: Boolean = true
+    var minYear: Double = Double.NegativeInfinity
+    var maxYear: Double = Double.PositiveInfinity
+    var labelOpactiy: Double = 1.0
+    var radius: Double = 1.0
+  }
+
+  trait RenderEdge extends D3Node {
+    var weight: Double = 0.0
     var color: String = "#000"
     var borderColor: String = "#000"
     var borderWidth: Double = 0.0
@@ -53,11 +69,10 @@ package graph {
   }
 
   case class EdgeInfo(
-    edge: Edge[Vertex],
-    @JSExport source: VertexInfo,
-    @JSExport target: VertexInfo,
-    weight: Double
-  ) extends D3Link[VertexInfo, VertexInfo] {
+    edge: Edge[Vertex]
+  ) extends {
+    var d3Link: D3Link[VertexInfo, VertexInfo] = _
+    var weight: Double = 0.0
     var color: String = "#000"
     var foreground: Boolean = false
     var width: Double = 1.0
@@ -170,9 +185,10 @@ package object graph {
           minYear = ps.ps.minBy(_.origin.year).origin.year
           maxYear = ps.ps.maxBy(_.origin.year).origin.year
       }
-      val vi = VertexInfo(v, weight = weight)
+      val vi = VertexInfo(v)
       vi.minYear = minYear
       vi.maxYear = maxYear
+      vi.weight = weight
       v -> vi
     }(breakOut)
     val edgeData: Map[Edge[Vertex], EdgeInfo] = edges.map {
@@ -185,7 +201,13 @@ package object graph {
           for (a <- as.as; p <- ps.ps if p.authors contains a)
             weight += 1.0
         }
-        e -> EdgeInfo(e, vertexData(ps), vertexData(as), weight)
+        val ei = EdgeInfo(e)
+        ei.d3Link = new D3Link[VertexInfo, VertexInfo] {
+          val source = vertexData(ps)
+          val target = vertexData(as)
+        }
+        ei.weight = weight
+        e -> ei
     }(breakOut)
 
     DirectedGraphData(vertices, edges, vertexData, edgeData)

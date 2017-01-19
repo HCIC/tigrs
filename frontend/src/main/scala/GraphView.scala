@@ -62,7 +62,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     var drawFgVertices: js.Array[VertexInfo] = js.Array()
     var drawFgEdges: js.Array[EdgeInfo] = js.Array()
 
-    val simulation = d3.forceSimulation[VertexInfo]()
+    val simulation = d3.forceSimulation[SimulationNode]()
       .force("center", d3.forceCenter())
       .force("gravityx", d3.forceX())
       .force("gravityy", d3.forceY())

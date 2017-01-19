@@ -6,17 +6,16 @@ final case class Institute(ikz: Seq[String])
 final case class Project(id: String, name: String)
 final case class Keyword(keyword: String)
 
-@JSExportAll
 final case class Publication(
   recordId: Int,
   title: String,
   origin: Origin,
   authors: Set[Author],
   owner: Option[Institute]
-  // projects: Seq[Project]
-  // outlet: Option[Outlet],
-  // keywords: Seq[Keyword],
-  // uri: Option[String],
+// projects: Seq[Project]
+// outlet: Option[Outlet],
+// keywords: Seq[Keyword],
+// uri: Option[String],
 ) {
   def canEqual(a: Any) = a.isInstanceOf[Publication]
 
