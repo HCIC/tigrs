@@ -90,7 +90,6 @@ lazy val frontend = (project in file("frontend"))
       Nil
     )
 
-  // React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
   // jsDependencies ++= Seq(
   //   "org.webjars.bower" % "react" % reactVersion
   //     / "react-with-addons.js"
@@ -110,5 +109,5 @@ lazy val frontend = (project in file("frontend"))
   //     commonJSName "ReactDOMServer"
   // )
   )
-  .enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+  .enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin, WorkbenchPlugin)
   .dependsOn(datatypesJS)

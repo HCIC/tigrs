@@ -28,6 +28,9 @@ import shapeless.{Lens, lens}
 import scalajs.js.typedarray._
 import concurrent.{Future, Promise, Await}
 import concurrent.duration.Duration
+
+import scala.scalajs.js.annotation.JSImport.Namespace
+import scala.scalajs.js.annotation.{JSExport, JSImport}
 import java.nio.ByteBuffer
 
 import scala.scalajs.js.typedarray.TypedArrayBufferOps._
@@ -41,7 +44,11 @@ import graph.Vertex
 
 object Main extends JSApp {
   def main() {
-    println("hello world")
+    tigrs.Visualization.render(new Visualization.WidgetConfig {
+      val renderTarget = document.getElementById("publications")
+      val ikz = "080013"
+      val sliderWidget = js.undefined
+    });
   }
 }
 

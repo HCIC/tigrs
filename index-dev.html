@@ -26,13 +26,14 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
 
-        <script src="http://localhost:12345/frontend/target/scala-2.12/scalajs-bundler/main/frontend-fastopt.js"></script>
-        <script>
-            tigrs.Visualization().render({
-                renderTarget: document.getElementById("publications"),
-                ikz: "080013",
-                sliderWidget: true,
-            });
-        </script>
+        <script src="http://localhost:12345/frontend/target/scala-2.12/frontend-jsdeps.js"></script>
+        <script src="http://localhost:12345/frontend/target/scala-2.12/scalajs-bundler/main/frontend-fastopt-bundle.js"></script>
+        <!-- <script> -->
+        <!--     tigrs.Visualization().render({ -->
+        <!--         renderTarget: document.getElementById("publications"), -->
+        <!--         ikz: "080013", -->
+        <!--         sliderWidget: true, -->
+        <!--     }); -->
+        <!-- </script> -->
     </body>
 </html>
