@@ -88,7 +88,7 @@ case class ShowSliderWidget(show: Boolean) extends Action
 object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   def initialModel = RootModel(PublicationVisualization())
 
-  val publicaitonsHandler = new ActionHandler(zoomRW(_.publicationVisualization)((m, v) => m.copy(publicationVisualization = v))) {
+  val publicaitonsHandler = new ActionHandler(zoomTo(_.publicationVisualization)) {
     override def handle = {
       case SetDisplayGraph(g) =>
         console.log(s"displaying graph with ${g.vertices.size} vertices and ${g.edges.size} edges.")
@@ -140,7 +140,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
   //     case UnHoverVertex => updated(value.copy(hoveredVertex = None))
   //   }
   // }
-  val selectionHandler = new ActionHandler(zoomRW(m => m.selectedVertices)((m, v) => m.copy(selectedVertices = v))) {
+  val selectionHandler = new ActionHandler(zoomTo(_.selectedVertices)) {
     override def handle = {
       case SelectVertex(v) => updated(value :+ v) //, Effect.action(UnHoverVertex))
       case DeselectVertex(v) => updated(value diff Vector(v))

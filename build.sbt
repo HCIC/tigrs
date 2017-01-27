@@ -34,7 +34,7 @@ lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes")
   .settings(
     libraryDependencies ++= (
       "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided" ::
-      "me.chrons" %%% "boopickle" % "1.2.5" ::
+      "io.suzaku" %%% "boopickle" % "1.2.6" ::
       "com.github.fdietze" %%% "pharg" % "0.1.1" ::
       "com.github.fdietze" %%% "vectory" % "0.1.0" ::
       Nil
@@ -70,7 +70,8 @@ lazy val frontend = (project in file("frontend"))
     libraryDependencies ++= (
       "org.scala-js" %%% "scalajs-dom" % "0.9.1" ::
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.3" ::
-      "me.chrons" %%% "diode-react" % "1.1.0" ::
+      "io.suzaku" %%% "diode" % "1.1.1" ::
+      "io.suzaku" %%% "diode-react" % "1.1.1" ::
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
       "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0" ::
       "com.github.fdietze" %%% "scala-js-d3v4-selection" % d3v4FacadeVersion ::
