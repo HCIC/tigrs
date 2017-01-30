@@ -3,12 +3,12 @@
 NAME="frontend"
 
 echo "building production assets..."
-sbt "frontend/fullOptJS"
+sbt clean "frontend/fullOptJS::webpack"
 
 rm -rf out
 mkdir -p out
 cp index.html out
-cp $NAME/target/scala-2.12/$NAME-{jsdeps.min.js,opt.js} out
+cp $NAME/target/scala-2.12/scalajs-bundler/main/frontend-opt-bundle.js out
 
 echo "compressing..."
 zopfli out/*

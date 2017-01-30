@@ -32,8 +32,12 @@ case class GraphProps(
   selectedVertices: Vector[Vertex]
 )
 
+@JSImport("d3", JSImport.Namespace)
+@js.native
+object d3native extends js.Object
+
 object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
-  val d3js = js.Dynamic.global.d3
+  val d3js = d3native.asInstanceOf[js.Dynamic]
 
   val hoverDistance = 30
   val collisionGap = 2

@@ -70,7 +70,6 @@ object Data {
 }
 import Data._
 
-@JSExport
 object Visualization {
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -81,7 +80,7 @@ object Visualization {
     val sliderWidget: js.UndefOr[Boolean]
   }
 
-  @JSExport
+  @JSExportTopLevel("render")
   def render(conf: WidgetConfig) {
     AppCircuit.dispatch(ShowSliderWidget(conf.sliderWidget.getOrElse(false)))
 

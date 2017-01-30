@@ -22,12 +22,12 @@ lazy val commonSettings = Seq(
 )
 
 lazy val root = project.in(file("."))
+  .aggregate(frontend)
   .settings(
     publish := {},
     publishLocal := {},
-    addCommandAlias("dev", "~frontend/fastOptJS")
+    addCommandAlias("dev", "~frontend/fastOptJS::webpack")
   )
-  .aggregate(frontend)
 
 lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes"))
   .settings(commonSettings: _*)
@@ -46,6 +46,7 @@ lazy val datatypesJVM = datatypes.jvm
 
 val circeVersion = "0.6.1"
 lazy val modsParser = (project in file("modsparser"))
+  .dependsOn(datatypesJVM)
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++=
@@ -58,11 +59,12 @@ lazy val modsParser = (project in file("modsparser"))
       // "-opt:l:classpath" ::
       Nil
   )
-  .dependsOn(datatypesJVM)
 
+import org.scalajs.core.tools.io.{VirtualJSFile, FileVirtualJSFile}
 val reactVersion = "15.4.2"
-val d3v4FacadeVersion = "0.1.0-SNAPSHOT"
 lazy val frontend = (project in file("frontend"))
+  .enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin, WorkbenchPlugin)
+  .dependsOn(datatypesJS)
   .settings(commonSettings: _*)
   .settings(
     persistLauncher in Test := false,
@@ -74,37 +76,32 @@ lazy val frontend = (project in file("frontend"))
       "io.suzaku" %%% "diode-react" % "1.1.1" ::
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
       "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0" ::
-      "com.github.fdietze" %%% "scala-js-d3v4-selection" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-collection" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-dispatch" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-quadtree" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-timer" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-force" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-zoom" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-transition" % d3v4FacadeVersion ::
-      "com.github.fdietze" %%% "scala-js-d3v4-drag" % d3v4FacadeVersion ::
+      "com.github.fdietze" %%% "scala-js-d3v4" % "0.1.0-SNAPSHOT" ::
       Nil
     ),
 
-    // React JS itself (Note the filenames, adjust as needed, eg. to remove addons.)
-    jsDependencies ++= Seq(
-      "org.webjars.bower" % "react" % reactVersion
-        / "react-with-addons.js"
-        minified "react-with-addons.min.js"
-        commonJSName "react",
+    // enableReloadWorkflow := true,
+    // emitSourceMaps := false,
 
-      "org.webjars.bower" % "react" % reactVersion
-        / "react-dom.js"
-        minified "react-dom.min.js"
-        dependsOn "react-with-addons.js"
-        commonJSName "ReactDOM",
+    //TODO: scalajs-react bundler support: https://github.com/japgolly/scalajs-react/pull/320
+    // until then we are exposing react to the global namespace:
+    // (https://scalacenter.github.io/scalajs-bundler/cookbook.html#global-namespace)
+    npmDependencies in Compile ++= Seq(
+      "react" -> reactVersion,
+      "react-dom" -> reactVersion
+    ),
+    // Add a dependency to the expose-loader (which will expose react to the global namespace)
+    npmDevDependencies in Compile += "expose-loader" -> "0.7.1",
+    // Use a custom config file to export the JS dependencies to the global namespace,
+    // as expected by the scalajs-react facade
+    webpackConfigFile := Some(baseDirectory.value / "webpack.config.js"),
+    watchSources += baseDirectory.value / "webpack.config.js",
 
-      "org.webjars.bower" % "react" % reactVersion
-        / "react-dom-server.js"
-        minified "react-dom-server.min.js"
-        dependsOn "react-dom.js"
-        commonJSName "ReactDOMServer"
-    )
+    // Use the output of Scala.js as a “launcher”
+    scalaJSLauncher in (Compile, fastOptJS) := {
+      Attributed.blank[VirtualJSFile](FileVirtualJSFile((fastOptJS in Compile).value.data))
+    },
+    scalaJSLauncher in (Compile, fullOptJS) := {
+      Attributed.blank[VirtualJSFile](FileVirtualJSFile((fullOptJS in Compile).value.data))
+    }
   )
-  .enablePlugins(ScalaJSPlugin, WorkbenchPlugin)
-  .dependsOn(datatypesJS)
