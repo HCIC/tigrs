@@ -5,7 +5,7 @@ import collection.{breakOut, mutable, immutable}
 import scalajs.js
 import scalajs.js.annotation._
 
-import org.scalajs.d3v4.force.{SimulationNodeImpl => D3Node, SimulationLinkImpl => D3Link}
+import org.scalajs.d3v4.{SimulationNodeImpl => D3Node, SimulationLinkImpl => D3Link}
 
 package graph {
   sealed trait Vertex

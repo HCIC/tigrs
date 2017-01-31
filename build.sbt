@@ -2,7 +2,7 @@ name := "tigrs"
 
 version := "0.1-SNAPSHOT"
 
-scalaVersion in ThisBuild := "2.12.1"
+scalaVersion in ThisBuild := "2.11.8"
 
 lazy val commonSettings = Seq(
 
@@ -17,8 +17,8 @@ lazy val commonSettings = Seq(
     "-Ywarn-unused" ::
     Nil,
 
-  // also watch on locally published libraries
-  watchSources <++= (managedClasspath in Compile) map { cp => cp.files }
+  // watch managed library dependencies (only works with scala 2.11 currently)
+  watchSources ++= (managedClasspath in Compile).map(_.files).value
 )
 
 lazy val root = project.in(file("."))

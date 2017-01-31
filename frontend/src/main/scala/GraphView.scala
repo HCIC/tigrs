@@ -18,9 +18,6 @@ import collection.mutable
 import collection.breakOut
 
 import org.scalajs.d3v4._
-import org.scalajs.d3v4.force._
-import org.scalajs.d3v4.zoom._
-import org.scalajs.d3v4.selection._
 
 import Math._
 
@@ -32,12 +29,12 @@ case class GraphProps(
   selectedVertices: Vector[Vertex]
 )
 
-@JSImport("d3", JSImport.Namespace)
-@js.native
-object d3native extends js.Object
+// @JSImport("d3", JSImport.Namespace)
+// @js.native
+// object d3native extends js.Object
 
 object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
-  val d3js = d3native.asInstanceOf[js.Dynamic]
+  // val d3js = d3native.asInstanceOf[js.Dynamic]
 
   val hoverDistance = 30
   val collisionGap = 2
@@ -52,9 +49,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
   class Backend($: Scope) extends CustomBackend($) {
     var p: Props = _ //TODO: better solution?
 
-    lazy val container = d3js.select(component)
+    lazy val container = d3.select(component)
     lazy val canvas = container.append("canvas")
-    lazy val context = canvas.node().asInstanceOf[raw.HTMLCanvasElement].getContext("2d")
+    lazy val context = canvas.node[raw.HTMLCanvasElement].getContext("2d")
     lazy val labels = container.append("div")
     lazy val hoverLabel = container.append("div")
     var labelsData: js.Dynamic = js.undefined.asInstanceOf[js.Dynamic]
@@ -103,10 +100,10 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         .style("text-shadow", "-1px -1px 0 white,  1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white")
 
       canvas
-        .on("mousemove", () => mouseMove())
-        .on("mouseout", () => mouseOut())
-        .on("click", () => click())
-        .call(d3js.zoom().on("zoom", zoomed _))
+        .on("mousemove", (() => mouseMove()): js.Function0[Unit])
+        .on("mouseout", (() => mouseOut()): js.Function0[Unit])
+        .on("click", (() => click()): js.Function0[Unit])
+        .call(d3.zoom().on("zoom", zoomed _))
     }
 
     def zoomed() {
@@ -116,7 +113,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     }
 
     def mouseMove() {
-      val pos = transform.invert(d3.mouse(canvas.node().asInstanceOf[raw.HTMLCanvasElement]))
+      val pos = transform.invert(d3.mouse(canvas.node[raw.HTMLCanvasElement]))
 
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
       if (hoveredVertex != d3Vertex) {
@@ -152,7 +149,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
     }
 
     def click() {
-      val pos = transform.invert(d3.mouse(canvas.node().asInstanceOf[raw.HTMLCanvasElement]))
+      val pos = transform.invert(d3.mouse(canvas.node[raw.HTMLCanvasElement]))
 
       val d3Vertex = simulation.find(pos(0), pos(1), hoverDistance).toOption
       d3Vertex match {
@@ -268,7 +265,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         simulation.force[PositioningX[VertexInfo]]("gravityx").strength(simConfig.gravity)
         simulation.force[PositioningY[VertexInfo]]("gravityy").strength(simConfig.gravity)
         simulation.force[ManyBody[VertexInfo]]("repel").strength(-simConfig.repel)
-        simulation.force[force.Link[VertexInfo, EdgeInfo]]("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
+        simulation.force[Link[VertexInfo, EdgeInfo]]("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
         simulation.alpha(1).restart()
       }
 
@@ -331,7 +328,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val edgeData = graph.edges.map(graph.edgeData).toJSArray
 
         simulation.nodes(vertexData)
-        simulation.force[force.Link[VertexInfo, EdgeInfo]]("link").links(edgeData)
+        simulation.force[Link[VertexInfo, EdgeInfo]]("link").links(edgeData)
 
         if (hoveredVertex.isDefined) {
           val hoveredVertexDoesNotExistAnymore = !(vertexData contains hoveredVertex.get)
