@@ -256,15 +256,15 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       val simulationHasStopped = simulation.alpha() <= simulation.alphaMin()
 
       if (newOrChanged(_.simConfig)) {
-        simulation.force[PositioningX[VertexInfo]]("gravityx").strength(simConfig.gravity)
-        simulation.force[PositioningY[VertexInfo]]("gravityy").strength(simConfig.gravity)
-        simulation.force[ManyBody[VertexInfo]]("repel").strength(-simConfig.repel)
-        simulation.force[Link[VertexInfo, EdgeInfo]]("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
+        simulation.forceAs[PositioningX[VertexInfo]]("gravityx").strength(simConfig.gravity)
+        simulation.forceAs[PositioningY[VertexInfo]]("gravityy").strength(simConfig.gravity)
+        simulation.forceAs[ManyBody[VertexInfo]]("repel").strength(-simConfig.repel)
+        simulation.forceAs[Link[VertexInfo, EdgeInfo]]("link").distance((e: EdgeInfo) => simConfig.linkDistance / (1 + e.weight))
         simulation.alpha(1).restart()
       }
 
       // if (newOrChanged(_.visConfig.radiusOffset) || newOrChanged(_.visConfig.radiusFactor) || newOrChanged(_.visConfig.radiusExponent)) {
-      // simulation.force[Collision[VertexInfo]]("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
+      // simulation.forceAs[Collision[VertexInfo]]("collision").radius((v: VertexInfo) => vertexRadius(v, p.visConfig) + collisionGap)
       // simulation.alpha(0.1).restart()
       // }
 
@@ -288,9 +288,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
           .attr("width", width)
           .attr("height", height)
 
-        simulation.force[Centering[VertexInfo]]("center").x(width / 2).y(height / 2)
-        simulation.force[PositioningX[VertexInfo]]("gravityx").x(width / 2)
-        simulation.force[PositioningY[VertexInfo]]("gravityy").y(height / 2)
+        simulation.forceAs[Centering[VertexInfo]]("center").x(width / 2).y(height / 2)
+        simulation.forceAs[PositioningX[VertexInfo]]("gravityx").x(width / 2)
+        simulation.forceAs[PositioningY[VertexInfo]]("gravityy").y(height / 2)
 
         if (simulationHasStopped)
           simulation.alpha(simulation.alphaMin()).restart()
@@ -322,7 +322,7 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
         val edgeData = graph.edges.map(graph.edgeData).toJSArray
 
         simulation.nodes(vertexData)
-        simulation.force[Link[VertexInfo, EdgeInfo]]("link").links(edgeData)
+        simulation.forceAs[Link[VertexInfo, EdgeInfo]]("link").links(edgeData)
 
         if (hoveredVertex.isDefined) {
           val hoveredVertexDoesNotExistAnymore = !(vertexData contains hoveredVertex.get)
