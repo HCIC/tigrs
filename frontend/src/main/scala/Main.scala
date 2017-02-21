@@ -290,11 +290,16 @@ object Visualization {
                 )
               },
               <.br(),
-              ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(a.name))
+              ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(
+                <.a(a.name, ^.href := s"https://scholar.google.de/citations?mauthors=${a.name}&hl=en&view_op=search_authors", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in Google Scholar")
+              ))
             )
           case graph.AuthorSet(_, as) =>
             <.div(
-              as.map(a => <.div(^.key := a.id, <.b(a.name)))
+              as.map(a => <.div(
+                ^.key := a.id,
+                <.a(a.name, ^.href := s"https://scholar.google.de/citations?mauthors=${a.name}&hl=en&view_op=search_authors", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in Google Scholar")
+              ))
             )
         }
       )
