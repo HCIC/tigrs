@@ -28,11 +28,8 @@
 
         <script src="http://localhost:12345/frontend/target/scala-2.11/scalajs-bundler/main/frontend-fastopt-bundle.js"></script>
         <script>
-            tigrs.render({
-                renderTarget: document.getElementById("publications"),
-                ikz: "080013",
-                sliderWidget: true,
-            });
+            function ga() {} // polyfill in dev
+            tigrs.render(document.getElementById("publications"));
         </script>
     </body>
 </html>

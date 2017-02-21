@@ -73,7 +73,7 @@ package object graph {
     result
   }
 
-  def mergedGraph(pubThreshold: Double, authorThreshold: Double, fractionalCounting: Boolean = true)(publications: Seq[tigrs.Publication]): DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = {
+  def mergedGraph(pubThreshold: Double, authorThreshold: Double, fractionalCounting: Boolean)(publications: Seq[tigrs.Publication]): DirectedGraphData[Vertex, VertexInfo, EdgeInfo] = {
     if (publications.size == 0) return DirectedGraphData[Vertex, VertexInfo, EdgeInfo](Set.empty, Set.empty, Map.empty, Map.empty)
 
     type P = tigrs.Publication

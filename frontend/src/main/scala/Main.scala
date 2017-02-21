@@ -73,18 +73,21 @@ import Data._
 object Visualization {
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  @ScalaJSDefined
-  trait WidgetConfig extends js.Object {
-    val renderTarget: dom.raw.Element
-    val ikz: String
-    val sliderWidget: js.UndefOr[Boolean]
-  }
-
   @JSExportTopLevel("render")
-  def render(conf: WidgetConfig) {
-    AppCircuit.dispatch(ShowSliderWidget(conf.sliderWidget.getOrElse(false)))
+  def render(renderTarget: dom.raw.Element) {
+    if (window.location.hash.isEmpty) {
+      console.log("no hash supplied, using defaults.")
+      val defaults = UrlConfig()
+      AppCircuit.dispatch(ActionBatch(
+        SetIkz(defaults.ikz.toSet),
+        ShowSettings(defaults.showSettings),
+        ShowIkzSelector(defaults.showIkzSelector),
+        SetConfig(GraphConfig(fractionalCounting = defaults.fractionalCounting))
+      ))
+    } else {
+      AppCircuit.dispatch(ImportHash)
+    }
 
-    AppCircuit.dispatch(SetIkz(Set(conf.ikz)))
     updateDimensions()
 
     downloadIkzList.onComplete {
@@ -95,13 +98,13 @@ object Visualization {
     window.addEventListener("resize", { e: Event => updateDimensions() })
 
     def updateDimensions() {
-      val targetRect = conf.renderTarget.getBoundingClientRect()
+      val targetRect = renderTarget.getBoundingClientRect()
       val targetDim = Vec2(targetRect.width, targetRect.height)
       AppCircuit.dispatch(SetDimensions(targetDim))
     }
 
     val modelConnect = AppCircuit.connect(m => m)
-    ReactDOM.render(modelConnect(widgetView(_)), conf.renderTarget)
+    ReactDOM.render(modelConnect(widgetView(_)), renderTarget)
   }
 
   val widgetView = ReactComponentB[ModelProxy[RootModel]]("WidgetView")
@@ -120,7 +123,7 @@ object Visualization {
             m.selectedVertices
           )
         ),
-        vis.sliderWidget ?= configWidget(proxy),
+        vis.showSettings ?= settingsWidget(proxy),
         <.div(
           ^.position := "absolute",
           ^.top := "10px",
@@ -149,8 +152,6 @@ object Visualization {
         <.select(
           ^.value := "",
           ^.onChange ==> ((e: ReactEventI) => {
-            val ga = js.Dynamic.global.ga
-            ga("send", "event", "ikz", e.target.value)
             proxy.dispatchCB(SetIkz(selected + e.target.value))
           }),
           ^.`class` := "form-control form-control-sm",
@@ -160,12 +161,12 @@ object Visualization {
       )
     }.build
 
-  val configWidget = ReactComponentB[ModelProxy[RootModel]]("configWidget")
+  val settingsWidget = ReactComponentB[ModelProxy[RootModel]]("settingsWidget")
     .render_P { proxy =>
       val model = proxy.value
       val vis = model.publicationVisualization
 
-      def configSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
+      def settingsSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
         <.div(
           ^.`class` := "row",
           <.label(s"$title: ", ^.`class` := "col-sm-5 col-form-label col-form-label-sm"),
@@ -199,16 +200,14 @@ object Visualization {
           <.a(dataToggle := "collapse", ^.href := "#settings", "Settings", ^.display := "inline-block", ^.width := "100%"),
           <.div(
             ^.`class` := "collapse", ^.id := "settings",
-            proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
+            vis.showIkzSelector ?= proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
             <.hr(),
-            configSlider("Merge Authors", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity,
-              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
-            configSlider("Merge Publ.", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity,
-              (c: GraphConfig) => Future { SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }),
-            configSlider("From", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
-            configSlider("Until", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
+            settingsSlider("Merge Authors", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity),
+            settingsSlider("Merge Publ.", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity),
+            settingsSlider("From", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
+            settingsSlider("Until", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
 
-            configSlider("Author Names", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
+            settingsSlider("Author Names", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
 
             <.div(
               ^.`class` := "row",
@@ -240,7 +239,6 @@ object Visualization {
                         ^.`class` := "form-check-input",
                         ^.onChange ==> ((e: ReactEventI) => {
                           val checked = e.target.checked
-                          Future { SetDisplayGraph(tigrs.graph.mergedGraph(vis.graphConfig.pubSimilarity, vis.graphConfig.authorSimilarity, checked)(vis.publications)) }.foreach { a => AppCircuit.dispatch(a) }
                           proxy.dispatchCB(SetConfig(vis.graphConfig.copy(fractionalCounting = checked)))
                         }))
                     )
@@ -248,18 +246,17 @@ object Visualization {
                 )
               ),
 
-              configSlider("Radius Offset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
-              configSlider("Radius Factor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
-              configSlider("Radius Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
-              configSlider("Width Offset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
-              configSlider("Width Factor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
-              configSlider("Width Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
+              settingsSlider("Radius Offset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
+              settingsSlider("Radius Factor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
+              settingsSlider("Radius Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
+              settingsSlider("Width Offset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
+              settingsSlider("Width Factor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
+              settingsSlider("Width Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
 
-              configSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
-              configSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
-              configSlider("Link Distance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
+              settingsSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
+              settingsSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
+              settingsSlider("Link Distance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
             )
-
           )
         )
       )

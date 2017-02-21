@@ -77,6 +77,9 @@ lazy val frontend = (project in file("frontend"))
       "com.chuusai" %%% "shapeless" % "2.3.2" ::
       "com.github.fdietze" %%% "scalajs-react-custom-component" % "0.1.0" ::
       "com.github.fdietze" %%% "scala-js-d3v4" % "0.1.0-SNAPSHOT" ::
+      "io.circe" %%% "circe-core" % circeVersion ::
+      "io.circe" %%% "circe-generic" % circeVersion ::
+      "io.circe" %%% "circe-parser" % circeVersion ::
       Nil
     ),
 
