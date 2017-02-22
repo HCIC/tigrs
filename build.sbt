@@ -26,7 +26,8 @@ lazy val root = project.in(file("."))
   .settings(
     publish := {},
     publishLocal := {},
-    addCommandAlias("dev", "~frontend/fastOptJS::webpack")
+    addCommandAlias("dev", "~frontend/fastOptJS::webpack"),
+    addCommandAlias("clean", "; frontend/clean; frontendAssets/clean")
   )
 
 lazy val datatypes = crossProject.crossType(CrossType.Pure).in(file("datatypes"))
@@ -58,6 +59,13 @@ lazy val modsParser = (project in file("modsparser"))
     scalacOptions ++=
       // "-opt:l:classpath" ::
       Nil
+  )
+
+lazy val frontendAssets = project
+  .enablePlugins(SbtWeb, ScalaJSWeb, WebScalaJSBundlerPlugin)
+  .settings(
+    scalaJSProjects := Seq(frontend),
+    pipelineStages in Assets := Seq(scalaJSPipeline)
   )
 
 import org.scalajs.core.tools.io.{VirtualJSFile, FileVirtualJSFile}
@@ -98,6 +106,7 @@ lazy val frontend = (project in file("frontend"))
     // Use a custom config file to export the JS dependencies to the global namespace,
     // as expected by the scalajs-react facade
     webpackConfigFile := Some(baseDirectory.value / "webpack.config.js"),
+    webpackConfigFile in fullOptJS := Some(baseDirectory.value / "prod.webpack.config.js"),
     watchSources += baseDirectory.value / "webpack.config.js",
 
     // Use the output of Scala.js as a “launcher”
