@@ -4,11 +4,14 @@ import collection.mutable
 
 import scala.scalajs.js
 import scala.scalajs.js.{JSApp, JSON}
+import js.timers.{setTimeout, clearTimeout, SetTimeoutHandle}
 import js.JSConverters._
 import org.scalajs.dom
+import org.scalajs.dom.raw.HTMLElement
 import org.scalajs.dom._
 import scala.scalajs.js.annotation._
 import org.scalajs.dom.ext.KeyCode
+import window.localStorage
 import scala.scalajs.js.Dynamic.global
 import scala.annotation.meta.field
 
@@ -21,6 +24,7 @@ import diode.react._
 
 import boopickle.Default._
 
+import cats.syntax.either._
 import pharg._
 import vectory._
 import shapeless.{Lens, lens}
@@ -38,6 +42,7 @@ import dom.ext.Ajax
 import scala.util.{Try, Success, Failure}
 
 import graph.Vertex
+import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
 
 object Data {
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -75,14 +80,30 @@ object Visualization {
 
   @JSExportTopLevel("render")
   def render(renderTarget: dom.raw.Element) {
+    console.log("loading settings from local storage...")
+    val visConfig = decode[VisualizationConfig](localStorage.getItem("visConfig"))
+    val simConfig = decode[SimulationConfig](localStorage.getItem("simConfig"))
+    val graphConfig = decode[GraphConfig](localStorage.getItem("graphConfig"))
+    val selectedIkzs = decode[List[String]](localStorage.getItem("selectedIkzs"))
+
+    for (vc <- visConfig; sc <- simConfig; gc <- graphConfig) {
+      console.log("settings found, applying...")
+      AppCircuit.dispatch(ActionBatch(
+        SetConfig(vc.copy(filter = "")),
+        SetConfig(sc),
+        SetConfig(gc)
+      ))
+    }
+
     if (window.location.hash.isEmpty) {
-      console.log("no hash supplied, using defaults.")
+
+      // console.log("no hash supplied, using defaults.")
       val defaults = UrlConfig()
       AppCircuit.dispatch(ActionBatch(
-        SetIkz(defaults.ikz.toSet),
+        SetIkz(selectedIkzs.getOrElse(defaults.ikz)),
+
         ShowSettings(defaults.showSettings),
-        ShowIkzSelector(defaults.showIkzSelector),
-        SetConfig(GraphConfig(fractionalCounting = defaults.fractionalCounting))
+        ShowIkzSelector(defaults.showIkzSelector)
       ))
     } else {
       AppCircuit.dispatch(ImportHash)
@@ -147,12 +168,14 @@ object Visualization {
       <.div(
         <.h4("Institutes"),
         <.h5(selected.toSeq.sorted.map(
-          ikz => <.span(<.span(^.`class` := "badge badge-primary", ikz, ^.key := ikz, <.span(" \u00D7 ", ^.color := "white", ^.title := "remove", ^.cursor := "pointer", ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected - ikz))))), " ")
+          ikz => <.span(<.span(^.`class` := "badge badge-primary", ikz, ^.key := ikz,
+            <.span(" \u00D7 ", ^.color := "white", ^.title := "remove", ^.cursor := "pointer",
+              ^.onClick ==> ((e: ReactEvent) => proxy.dispatchCB(SetIkz(selected diff List(ikz)))))), " ")
         )),
         <.select(
           ^.value := "",
           ^.onChange ==> ((e: ReactEventI) => {
-            proxy.dispatchCB(SetIkz(selected + e.target.value))
+            proxy.dispatchCB(SetIkz(selected :+ e.target.value))
           }),
           ^.`class` := "form-control form-control-sm",
           <.option(^.value := "", "Add Institute"),
@@ -161,6 +184,7 @@ object Visualization {
       )
     }.build
 
+  var saveSuccessMsgTimeout: SetTimeoutHandle = setTimeout(0) { () }
   val settingsWidget = ReactComponentB[ModelProxy[RootModel]]("settingsWidget")
     .render_P { proxy =>
       val model = proxy.value
@@ -256,6 +280,37 @@ object Visualization {
               settingsSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
               settingsSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
               settingsSlider("Link Distance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
+            ),
+            <.div(
+              ^.display := "flex",
+              ^.justifyContent := "space-between",
+              ^.marginTop := "10px",
+              <.button(^.`class` := "btn btn-outline-danger btn-sm", "Reset Settings",
+                ^.onClick --> Callback {
+                  AppCircuit.dispatch(ActionBatch(
+                    SetConfig(VisualizationConfig(minYear = vis.publicationsMinYear, maxYear = vis.publicationsMaxYear)),
+                    SetConfig(SimulationConfig()),
+                    SetConfig(GraphConfig()),
+                    ImportHash
+                  ))
+                }),
+              <.button(^.`class` := "btn btn-secondary btn-sm", "Save Settings",
+                ^.onClick --> Callback {
+                  localStorage.setItem("visConfig", vis.visConfig.asJson.spaces2)
+                  localStorage.setItem("simConfig", vis.simConfig.asJson.spaces2)
+                  localStorage.setItem("graphConfig", vis.graphConfig.asJson.spaces2)
+                  localStorage.setItem("selectedIkzs", vis.selectedIkzs.asJson.spaces2)
+                  document.getElementById("save-feedback").asInstanceOf[HTMLElement].style.display = "block"
+                  clearTimeout(saveSuccessMsgTimeout)
+                  saveSuccessMsgTimeout = setTimeout(5000) { document.getElementById("save-feedback").asInstanceOf[HTMLElement].style.display = "none" }
+                  //TODO: send to ga
+                })
+            ),
+            <.div(
+              ^.id := "save-feedback",
+              ^.textAlign := "right",
+              ^.display := "none",
+              <.small("Settings saved successfully.")
             )
           )
         )

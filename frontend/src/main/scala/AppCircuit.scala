@@ -36,7 +36,7 @@ sealed trait Config
 case class GraphConfig(
   pubSimilarity: Double = 1.0,
   authorSimilarity: Double = 1.0,
-  fractionalCounting: Boolean = false
+  fractionalCounting: Boolean = UrlConfig().fractionalCounting
 ) extends Config
 
 case class SimulationConfig(
@@ -60,7 +60,7 @@ case class VisualizationConfig(
 
 case class PublicationVisualization(
   availableIkzs: Seq[String] = Nil,
-  selectedIkzs: Set[String] = Set.empty,
+  selectedIkzs: Seq[String] = Nil,
   publications: Seq[Publication] = Nil,
   publicationsMinYear: Double = 0,
   publicationsMaxYear: Double = 0,
@@ -91,7 +91,7 @@ case class SetDimensions(dimensions: Vec2) extends Action
 case class DownloadPublications(url: Iterable[String]) extends Action
 case class SetPublications(ps: Seq[Publication]) extends Action
 case class SetAvailableIkzList(availableIkzs: Seq[String]) extends Action
-case class SetIkz(selectedIkzs: Set[String]) extends Action
+case class SetIkz(selectedIkzs: Seq[String]) extends Action
 case class SetConfig(config: Config) extends Action
 case class ShowSettings(show: Boolean) extends Action
 case class ShowIkzSelector(show: Boolean) extends Action
@@ -115,7 +115,7 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
           val graphConfig = vis.graphConfig
           effectOnly(Effect.action(
             ActionBatch((
-              (if (newConfig.ikz.toSet != vis.selectedIkzs) Seq(SetIkz(newConfig.ikz.toSet)) else Nil) ++
+              (if (newConfig.ikz.toSet != vis.selectedIkzs.toSet) Seq(SetIkz(newConfig.ikz)) else Nil) ++
               (if (newConfig.fractionalCounting != graphConfig.fractionalCounting) Seq(SetConfig(graphConfig.copy(fractionalCounting = newConfig.fractionalCounting))) else Nil) ++
               Seq(ShowSettings(newConfig.showSettings)) ++
               Seq(ShowIkzSelector(newConfig.showIkzSelector))
@@ -190,10 +190,10 @@ object AppCircuit extends Circuit[RootModel] with ReactConnector[RootModel] {
         effectOnly(Effect(
           pubsF.map(pubs => SetPublications(pubs.reduceOption(_ ++ _).getOrElse(Nil).distinct))
         ))
-      case SetConfig(c: GraphConfig) => updated(value.copy(graphConfig = c), Effect.action(ActionBatch(
-        ExportHash,
-        SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(value.publications))
-      )))
+      case SetConfig(c: GraphConfig) => updated(value.copy(graphConfig = c), Effect.action(ActionBatch((
+        Seq(ExportHash) ++
+        (if (c != value.graphConfig) Seq(SetDisplayGraph(tigrs.graph.mergedGraph(c.pubSimilarity, c.authorSimilarity, c.fractionalCounting)(value.publications))) else Nil)
+      ): _*)))
       case SetConfig(c: SimulationConfig) => updated(value.copy(simConfig = c))
       case SetConfig(c: VisualizationConfig) => updated(value.copy(visConfig = c))
       case ShowSettings(show) => updated(value.copy(showSettings = show))
