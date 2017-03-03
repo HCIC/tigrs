@@ -303,7 +303,18 @@ object Visualization {
                   document.getElementById("save-feedback").asInstanceOf[HTMLElement].style.display = "block"
                   clearTimeout(saveSuccessMsgTimeout)
                   saveSuccessMsgTimeout = setTimeout(5000) { document.getElementById("save-feedback").asInstanceOf[HTMLElement].style.display = "none" }
-                  //TODO: send to ga
+
+                  case class IkzList(ikz: Seq[String])
+                  Ajax.put(
+                    "settings.php",
+                    headers = Map("Content-Type" -> "application/json"),
+                    data = (
+                      vis.simConfig.asJson deepMerge
+                      vis.visConfig.asJson deepMerge
+                      vis.graphConfig.asJson deepMerge
+                      IkzList(vis.selectedIkzs).asJson
+                    ).spaces2
+                  )
                 })
             ),
             <.div(
