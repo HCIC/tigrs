@@ -12,6 +12,7 @@ import org.scalajs.dom._
 import scala.scalajs.js.annotation._
 import org.scalajs.dom.ext.KeyCode
 import window.localStorage
+import window.screen
 import scala.scalajs.js.Dynamic.global
 import scala.annotation.meta.field
 
@@ -305,10 +306,25 @@ object Visualization {
                   saveSuccessMsgTimeout = setTimeout(5000) { document.getElementById("save-feedback").asInstanceOf[HTMLElement].style.display = "none" }
 
                   case class IkzList(ikz: Seq[String])
+                  case class AdditionalStats(
+                    screenWidth: Double = screen.width,
+                    screenHeight: Double = screen.height,
+                    screenAvailableWidth: Double = screen.availWidth,
+                    screenAvailableHeight: Double = screen.availHeight,
+                    devicePixelRatio: Double = window.devicePixelRatio
+                  )
+
+                  case class BrowserInfo(val browser: String, val browserMajorVersion: Int)
+                  val browser = js.Dynamic.global.detectBrowser()
+                  println(browser)
+                  val browserInfo = BrowserInfo(browser.browser.asInstanceOf[String], browser.browserMajorVersion.asInstanceOf[Int])
+
                   Ajax.put(
                     "settings.php",
                     headers = Map("Content-Type" -> "application/json"),
                     data = (
+                      AdditionalStats().asJson deepMerge
+                      browserInfo.asJson deepMerge
                       vis.simConfig.asJson deepMerge
                       vis.visConfig.asJson deepMerge
                       vis.graphConfig.asJson deepMerge
