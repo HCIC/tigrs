@@ -2,6 +2,7 @@ package tigrs
 
 import collection.mutable
 
+import collection.breakOut
 import scala.scalajs.js
 import scala.scalajs.js.{JSApp, JSON}
 import js.timers.{setTimeout, clearTimeout, SetTimeoutHandle}
@@ -42,7 +43,7 @@ import dom.ext.Ajax
 
 import scala.util.{Try, Success, Failure}
 
-import graph.Vertex
+import graph.{Vertex, PublicationSet, AuthorSet}
 import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
 
 object Data {
@@ -153,7 +154,6 @@ object Visualization {
           ^.display := "flex",
           ^.flexDirection := "column",
           m.selectedVertices.map(preview(_))
-        // m.hoveredVertex.map(preview(_))
         )
       )
     }.build
@@ -297,6 +297,7 @@ object Visualization {
                 }),
               <.button(^.`class` := "btn btn-secondary btn-sm", "Save Settings",
                 ^.onClick --> Callback {
+                  // save settings to local storage
                   localStorage.setItem("visConfig", vis.visConfig.asJson.spaces2)
                   localStorage.setItem("simConfig", vis.simConfig.asJson.spaces2)
                   localStorage.setItem("graphConfig", vis.graphConfig.asJson.spaces2)
@@ -305,8 +306,9 @@ object Visualization {
                   clearTimeout(saveSuccessMsgTimeout)
                   saveSuccessMsgTimeout = setTimeout(5000) { document.getElementById("save-feedback").asInstanceOf[HTMLElement].style.display = "none" }
 
+                  // collect data for analysis
                   case class IkzList(ikz: Seq[String])
-                  case class AdditionalStats(
+                  case class ScreenStats(
                     screenWidth: Double = screen.width,
                     screenHeight: Double = screen.height,
                     screenAvailableWidth: Double = screen.availWidth,
@@ -314,20 +316,29 @@ object Visualization {
                     devicePixelRatio: Double = window.devicePixelRatio
                   )
 
+                  val authors: Set[tigrs.Author] = vis.publications.flatMap(_.authors)(breakOut)
+                  case class GraphStats(
+                    publicationCount: Int = vis.publications.size,
+                    publicationSetCount: Int = vis.displayGraph.vertices.count(_.isInstanceOf[PublicationSet]),
+                    authorCount: Int = authors.size,
+                    authorSetCount: Int = vis.displayGraph.vertices.count(_.isInstanceOf[AuthorSet]),
+                    edgeCount: Int = vis.displayGraph.edges.size
+                  )
+
                   case class BrowserInfo(val browser: String, val browserMajorVersion: Int)
                   val browser = js.Dynamic.global.detectBrowser()
-                  println(browser)
                   val browserInfo = BrowserInfo(browser.browser.asInstanceOf[String], browser.browserMajorVersion.asInstanceOf[Int])
 
                   Ajax.put(
                     "settings.php",
                     headers = Map("Content-Type" -> "application/json"),
                     data = (
-                      AdditionalStats().asJson deepMerge
+                      ScreenStats().asJson deepMerge
                       browserInfo.asJson deepMerge
                       vis.simConfig.asJson deepMerge
                       vis.visConfig.asJson deepMerge
                       vis.graphConfig.asJson deepMerge
+                      GraphStats().asJson deepMerge
                       IkzList(vis.selectedIkzs).asJson
                     ).spaces2
                   )
