@@ -8,6 +8,7 @@ import js.JSConverters._
 import scala.scalajs.js.annotation._
 import org.scalajs.dom
 import org.scalajs.dom._
+import js.timers.setTimeout
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -64,6 +65,9 @@ object GraphViewCanvas extends CustomComponent[GraphProps]("GraphViewCanvas") {
       .force("repel", d3.forceManyBody())
       .force("link", d3.forceLink())
     // .force("collision", d3.forceCollide())
+    simulation.alpha(1)
+    simulation.alphaTarget(1)
+    setTimeout(10000) { simulation.alphaTarget(0) }
 
     simulation.on("tick", () => draw())
 
