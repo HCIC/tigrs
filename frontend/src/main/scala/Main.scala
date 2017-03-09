@@ -130,6 +130,10 @@ object Visualization {
     ReactDOM.render(modelConnect(widgetView(_)), renderTarget)
   }
 
+  val dataToggle = "data-toggle".reactAttr
+  val dataPlacement = "data-placement".reactAttr
+  val dataHtml = "data-html".reactAttr
+
   val widgetView = ReactComponentB[ModelProxy[RootModel]]("WidgetView")
     .render_P { proxy =>
       val m = proxy.value
@@ -157,8 +161,6 @@ object Visualization {
         )
       )
     }.build
-
-  val dataToggle = "data-toggle".reactAttr
 
   val ikzSelector = ReactComponentB[ModelProxy[PublicationVisualization]]("Ikz Selector")
     .render_P { proxy =>
@@ -191,12 +193,13 @@ object Visualization {
       val model = proxy.value
       val vis = model.publicationVisualization
 
-      def settingsSlider[C <: Config](title: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
+      def settingsSlider[C <: Config](title: String, description: String, min: Double, max: Double, step: Double, config: C, lens: Lens[C, Double], sideEffect: C => Unit = (_: C) => {}) = {
         <.div(
+
           ^.`class` := "row",
           <.label(s"$title: ", ^.`class` := "col-sm-5 col-form-label col-form-label-sm"),
           <.div(
-            ^.`class` := "col-sm-5",
+            ^.`class` := "col-sm-4",
             <.input(
               ^.`type` := "range", ^.min := min, ^.max := max, ^.step := step, ^.value := lens.get(config),
               ^.`class` := "form-control form-control-sm",
@@ -210,11 +213,13 @@ object Visualization {
           <.div(
             ^.`class` := "col-sm-2",
             lens.get(config)
-          )
+          ),
+          <.div(^.`class` := "col-sm-1", ^.padding := 0,
+            <.span("\u24d8", dataToggle := "tooltip", dataPlacement := "bottom", dataHtml := "true", ^.title := s"""<p align="left">$description</p>""", ^.cursor := "help"))
         )
       }
       <.div(
-        ^.width := "350px",
+        ^.width := "400px",
         ^.position := "absolute",
         ^.top := "10px",
         ^.left := "10px",
@@ -227,12 +232,12 @@ object Visualization {
             ^.`class` := "collapse", ^.id := "settings",
             vis.showIkzSelector ?= proxy.wrap(_.publicationVisualization)(v => ikzSelector(v)),
             <.hr(),
-            settingsSlider("Merge Authors", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity),
-            settingsSlider("Merge Publ.", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity),
-            settingsSlider("From", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
-            settingsSlider("Until", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
+            settingsSlider("Merge Authors", "The slider adjusts the degree of similarity needed for a merge. When moving the slider to the right, authors are only merged when all their publications have no other co-authors. Setting the slider to the left relaxes this criterion and merges “similar” authors.", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'pubSimilarity),
+            settingsSlider("Merge Publ.", "The slider adjusts the degree of similarity needed for a merge. When moving the slider to the right, publications are only merged when all their authors have no other publications. Setting the slider to the left relaxes this criterion and merges “similar” publications.", 0.01, 1.0, 0.01, vis.graphConfig, lens[GraphConfig] >> 'authorSimilarity),
+            settingsSlider("From", "Display only publications after this year.", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'minYear),
+            settingsSlider("Until", "Display only publications before this year.", vis.publicationsMinYear, vis.publicationsMaxYear, 1, vis.visConfig, lens[VisualizationConfig] >> 'maxYear),
 
-            settingsSlider("Author Names", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
+            settingsSlider("Author Names", "This slider adjusts the range of names to display. By increasing this slider, more authors are shown. Authors are shown in accordance with the numbers of paper they have co-authored.", 0, 1, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'authorLabels),
 
             <.div(
               ^.`class` := "row",
@@ -255,7 +260,7 @@ object Visualization {
                 ^.`class` := "row",
                 <.div(^.`class` := "col-sm-8 col-form-label col-form-label-sm", s"Fractional Counting: "),
                 <.div(
-                  ^.`class` := "col-sm-4",
+                  ^.`class` := "col-sm-3",
                   <.div(
                     ^.`class` := "form-check",
                     <.label(
@@ -268,19 +273,21 @@ object Visualization {
                         }))
                     )
                   )
-                )
+                ),
+                <.div(^.`class` := "col-sm-1", ^.padding := 0,
+                  <.span("\u24d8", dataToggle := "tooltip", dataPlacement := "bottom", dataHtml := "true", ^.title := s"""<p align="left">The size of circles and thickness of lines used in the visualisation is determined by the number of papers an author has written. Fractional counting counts one paper as 1/n if the paper as n authors. Full counting counts every paper as 1.</p>""", ^.cursor := "help"))
               ),
 
-              settingsSlider("Radius Offset", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
-              settingsSlider("Radius Factor", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
-              settingsSlider("Radius Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
-              settingsSlider("Width Offset", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
-              settingsSlider("Width Factor", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
-              settingsSlider("Width Exponent", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
+              settingsSlider("Radius Offset", "Radius settings adjust the circle sizes (nodes). Offset sets the minimal size in pixels for each circle.", 0, 20, 0.5, vis.visConfig, lens[VisualizationConfig] >> 'radiusOffset),
+              settingsSlider("Radius Factor", "Radius settings adjust the circle sizes (nodes). Factor adjusts how much the amount of publications is amplified linearly in the size of each circle.", 0, 20, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'radiusFactor),
+              settingsSlider("Radius Exponent", "Radius settings adjust the circle sizes (nodes). Exponent adjusts the exponent of how the publication count goes into the circle size. Values smaller then 1 make authors with less publications more visible. Values greater than 1 amplify authors with many publications.", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'radiusExponent),
+              settingsSlider("Width Offset", "Width settings adjust the line widths (edges). Offset sets the minimal size in pixels for each line.", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthOffset),
+              settingsSlider("Width Factor", "Width settings adjust the line widths (edges). Factor adjusts how much the amount of publications is amplified linearly in the width of each line.", 0, 10, 0.1, vis.visConfig, lens[VisualizationConfig] >> 'widthFactor),
+              settingsSlider("Width Exponent", "Width settings adjust the line widths (edges). Exponent adjusts the exponent of how the publication count goes into the line width. Values smaller then 1 make connections with less publications more visible. Values greater than 1 amplify connections with many publications.", 0, 2, 0.001, vis.visConfig, lens[VisualizationConfig] >> 'widthExponent),
 
-              settingsSlider("Repel", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
-              settingsSlider("Gravity", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
-              settingsSlider("Link Distance", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
+              settingsSlider("Repel", "This slider adjusts the strength of the repulsion force between unconnected nodes. This indirectly controls the size of the graph.", 0, 200, 1, vis.simConfig, lens[SimulationConfig] >> 'repel),
+              settingsSlider("Gravity", "All nodes are drawn to the center of the canvas. This prevents individual unconnected nodes from flying out of reach. Strong gravity can enforce a circular shape of the overall graph.", 0, 1, 0.01, vis.simConfig, lens[SimulationConfig] >> 'gravity),
+              settingsSlider("Link Distance", "This slider adjust the desired distance between nodes. The layout algorithm tries to achieve this distance between any two connected nodes.", 1, 100, 1, vis.simConfig, lens[SimulationConfig] >> 'linkDistance)
             ),
             <.div(
               ^.display := "flex",

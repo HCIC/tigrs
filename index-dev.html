@@ -1,101 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <title>tigrs</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <script type="text/javascript" src="/workbench.js"></script>
+  <title>tigrs</title>
 
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+  <script type="text/javascript" src="/workbench.js"></script>
 
-        <style type="text/css">
-            html,body {
-                height: 100%;
-                width: 100%;
-                margin: 0;
-                overflow: hidden;
-            }
-        </style>
-        <script>
-          function detectBrowser() {
-            var nVer = navigator.appVersion;
-            var nAgt = navigator.userAgent;
-            var browserName = navigator.appName;
-            var fullVersion = '' + parseFloat(navigator.appVersion);
-            var majorVersion = parseInt(navigator.appVersion, 10);
-            var nameOffset, verOffset, ix;
+  <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
 
-            // In Opera, the true version is after "Opera" or after "Version"
-            if ((verOffset = nAgt.indexOf("Opera")) != -1) {
-              browserName = "Opera";
-              fullVersion = nAgt.substring(verOffset + 6);
-              if ((verOffset = nAgt.indexOf("Version")) != -1)
-                fullVersion = nAgt.substring(verOffset + 8);
-            }
-            // In MSIE, the true version is after "MSIE" in userAgent
-            else if ((verOffset = nAgt.indexOf("MSIE")) != -1) {
-              browserName = "Microsoft Internet Explorer";
-              fullVersion = nAgt.substring(verOffset + 5);
-            }
-            // In Chrome, the true version is after "Chrome"
-            else if ((verOffset = nAgt.indexOf("Chrome")) != -1) {
-              browserName = "Chrome";
-              fullVersion = nAgt.substring(verOffset + 7);
-            }
-            // In Safari, the true version is after "Safari" or after "Version"
-            else if ((verOffset = nAgt.indexOf("Safari")) != -1) {
-              browserName = "Safari";
-              fullVersion = nAgt.substring(verOffset + 7);
-              if ((verOffset = nAgt.indexOf("Version")) != -1)
-                fullVersion = nAgt.substring(verOffset + 8);
-            }
-            // In Firefox, the true version is after "Firefox"
-            else if ((verOffset = nAgt.indexOf("Firefox")) != -1) {
-              browserName = "Firefox";
-              fullVersion = nAgt.substring(verOffset + 8);
-            }
-            // In most other browsers, "name/version" is at the end of userAgent
-            else if ((nameOffset = nAgt.lastIndexOf(' ') + 1) <
-              (verOffset = nAgt.lastIndexOf('/'))) {
-              browserName = nAgt.substring(nameOffset, verOffset);
-              fullVersion = nAgt.substring(verOffset + 1);
-              if (browserName.toLowerCase() == browserName.toUpperCase()) {
-                browserName = navigator.appName;
-              }
-            }
-            // trim the fullVersion string at semicolon/space if present
-            if ((ix = fullVersion.indexOf(";")) != -1)
-              fullVersion = fullVersion.substring(0, ix);
-            if ((ix = fullVersion.indexOf(" ")) != -1)
-              fullVersion = fullVersion.substring(0, ix);
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
 
-            majorVersion = parseInt('' + fullVersion, 10);
-            if (isNaN(majorVersion)) {
-              fullVersion = '' + parseFloat(navigator.appVersion);
-              majorVersion = parseInt(navigator.appVersion, 10);
-            }
+  <style type="text/css">
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+  <script>
+    function detectBrowser() {
+      var nVer = navigator.appVersion;
+      var nAgt = navigator.userAgent;
+      var browserName = navigator.appName;
+      var fullVersion = '' + parseFloat(navigator.appVersion);
+      var majorVersion = parseInt(navigator.appVersion, 10);
+      var nameOffset, verOffset, ix;
 
-            return {
-              "browser": browserName,
-              "browserMajorVersion": majorVersion,
-              "browserFullVersion": fullVersion
-            };
-          }
-        </script>
-    </head>
-    <body>
-        <div id="publications" style="width:100%; height:100%"></div>
+      // In Opera, the true version is after "Opera" or after "Version"
+      if ((verOffset = nAgt.indexOf("Opera")) != -1) {
+        browserName = "Opera";
+        fullVersion = nAgt.substring(verOffset + 6);
+        if ((verOffset = nAgt.indexOf("Version")) != -1)
+          fullVersion = nAgt.substring(verOffset + 8);
+      }
+      // In MSIE, the true version is after "MSIE" in userAgent
+      else if ((verOffset = nAgt.indexOf("MSIE")) != -1) {
+        browserName = "Microsoft Internet Explorer";
+        fullVersion = nAgt.substring(verOffset + 5);
+      }
+      // In Chrome, the true version is after "Chrome"
+      else if ((verOffset = nAgt.indexOf("Chrome")) != -1) {
+        browserName = "Chrome";
+        fullVersion = nAgt.substring(verOffset + 7);
+      }
+      // In Safari, the true version is after "Safari" or after "Version"
+      else if ((verOffset = nAgt.indexOf("Safari")) != -1) {
+        browserName = "Safari";
+        fullVersion = nAgt.substring(verOffset + 7);
+        if ((verOffset = nAgt.indexOf("Version")) != -1)
+          fullVersion = nAgt.substring(verOffset + 8);
+      }
+      // In Firefox, the true version is after "Firefox"
+      else if ((verOffset = nAgt.indexOf("Firefox")) != -1) {
+        browserName = "Firefox";
+        fullVersion = nAgt.substring(verOffset + 8);
+      }
+      // In most other browsers, "name/version" is at the end of userAgent
+      else if ((nameOffset = nAgt.lastIndexOf(' ') + 1) <
+        (verOffset = nAgt.lastIndexOf('/'))) {
+        browserName = nAgt.substring(nameOffset, verOffset);
+        fullVersion = nAgt.substring(verOffset + 1);
+        if (browserName.toLowerCase() == browserName.toUpperCase()) {
+          browserName = navigator.appName;
+        }
+      }
+      // trim the fullVersion string at semicolon/space if present
+      if ((ix = fullVersion.indexOf(";")) != -1)
+        fullVersion = fullVersion.substring(0, ix);
+      if ((ix = fullVersion.indexOf(" ")) != -1)
+        fullVersion = fullVersion.substring(0, ix);
 
-        <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+      majorVersion = parseInt('' + fullVersion, 10);
+      if (isNaN(majorVersion)) {
+        fullVersion = '' + parseFloat(navigator.appVersion);
+        majorVersion = parseInt(navigator.appVersion, 10);
+      }
 
-        <script src="http://localhost:12345/frontend/target/scala-2.11/scalajs-bundler/main/frontend-fastopt-bundle.js"></script>
-        <script>
-            function ga() {} // polyfill in dev
-            tigrs.render(document.getElementById("publications"));
-        </script>
-    </body>
+      return {
+        "browser": browserName,
+        "browserMajorVersion": majorVersion,
+        "browserFullVersion": fullVersion
+      };
+    }
+  </script>
+</head>
+
+<body>
+  <div id="publications" style="width:100%; height:100%"></div>
+
+  <script src="http://localhost:12345/frontend/target/scala-2.11/scalajs-bundler/main/frontend-fastopt-bundle.js"></script>
+  <script>
+    function ga() {} // polyfill in dev
+    tigrs.render(document.getElementById("publications"));
+    $(function() {
+      $('[data-toggle="tooltip"]').tooltip()
+    });
+  </script>
+</body>
+
 </html>
