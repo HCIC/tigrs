@@ -91,6 +91,7 @@ lazy val frontend = (project in file("frontend"))
       Nil
     ),
 
+    refreshBrowsers <<= refreshBrowsers.triggeredBy(webpack in fastOptJS in Compile),
     // enableReloadWorkflow := true,
     // emitSourceMaps := false,
 
