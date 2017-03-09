@@ -5,5 +5,6 @@
   echo put out/frontend-opt-bundle.js.gz
   echo put out/index.html
   echo put out/index.html.gz
+  echo put out/ub.png
   echo put out/.htaccess
 } | sftp -b - $DEPLOY_USER@$DEPLOY_HOST
