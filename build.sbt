@@ -26,7 +26,7 @@ lazy val root = project.in(file("."))
   .settings(
     publish := {},
     publishLocal := {},
-    addCommandAlias("dev", "~frontend/fastOptJS::webpack"),
+    addCommandAlias("dev", "; cd frontend; ~fastOptJS::webpack"),
     addCommandAlias("clean", "; frontend/clean; frontendAssets/clean")
   )
 
