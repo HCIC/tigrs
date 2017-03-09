@@ -386,19 +386,28 @@ object Visualization {
                 <.div(
                   ^.key := p.recordId,
                   s"${p.origin.year} ",
-                  <.a(p.title, ^.href := s"https://scholar.google.de/scholar?q=${p.title}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search in Google Scholar")
+                  <.a(p.title, ^.href := s"https://scholar.google.de/scholar?q=${p.title}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search in Google Scholar"),
+                <.a(
+                  <.img(^.src:="ub.png", ^.marginBottom := 3, ^.marginLeft := 5),
+                  ^.href := s"https://publications.rwth-aachen.de/record/${p.recordId}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Open Publication in University Library")
                 )
               },
               <.br(),
               ps.flatMap(p => p.authors).distinct.sortBy(_.name).map(a => <.div(
-                <.a(a.name, ^.href := s"https://scholar.google.de/citations?mauthors=${a.name}&hl=en&view_op=search_authors", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in Google Scholar")
+                <.a(a.name, ^.href := s"https://scholar.google.de/citations?mauthors=${a.name}&hl=en&view_op=search_authors", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in Google Scholar"),
+                <.a(
+                  <.img(^.src:="ub.png", ^.marginBottom := 3, ^.marginLeft := 5),
+                  ^.href := s"https://publications.rwth-aachen.de/search?ln=en&p=aid:${a.id}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in University Library")
               ))
             )
           case graph.AuthorSet(_, as) =>
             <.div(
               as.map(a => <.div(
                 ^.key := a.id,
-                <.a(a.name, ^.href := s"https://scholar.google.de/citations?mauthors=${a.name}&hl=en&view_op=search_authors", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in Google Scholar")
+                <.a(a.name, ^.href := s"https://scholar.google.de/citations?mauthors=${a.name}&hl=en&view_op=search_authors", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in Google Scholar"),
+                <.a(
+                  <.img(^.src:="ub.png", ^.marginBottom := 3, ^.marginLeft := 5),
+                  ^.href := s"https://publications.rwth-aachen.de/search?ln=en&p=aid:${a.id}", ^.target := "_blank", ^.cursor := "pointer", ^.title := "Search Author in University Library")
               ))
             )
         }
