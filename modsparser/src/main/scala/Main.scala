@@ -66,6 +66,10 @@ object Main extends App {
     val distinctPubs = pubs.map(p => p.recordId -> p).toMap.values.toSeq
     println(s"serializing ${distinctPubs.size} publications into data/fakall.boo ...")
     pickleIntoFile(distinctPubs, "data/fakall.boo")
+
+    // println(s"serializing ${distinctPubs.size} publications into data/fakall.json ...")
+    // pickleIntoJsonFile(distinctPubs, "data/fakall.json")
+
     distinctPubs
   }
   // val publications = loadPubData
@@ -78,9 +82,6 @@ object Main extends App {
     print(s"institute: $done / ${ikzs.size}       \r")
   }
   println()
-
-  // println(s"serializing ${distinctPubs.size} publication data into data/fakall.json ...")
-  // pickleIntoJsonFile(Publications(distinctPubs), "data/fakall.json")
 
   // implicit def pickleState = new PickleState(new boopickle.EncoderSize, false, false)
   import PublicationPickler._
